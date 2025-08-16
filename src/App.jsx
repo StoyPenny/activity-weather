@@ -3,10 +3,12 @@ import { fetchWeatherData, calculateAllHourlyRatings, getCacheTimestamp, clearCa
 import { getCurrentLocationOrDefault, saveLocation } from "./lib/location";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
 import LocationInput from "./components/LocationInput";
+import WeatherSummary from "./components/WeatherSummary";
 import { RefreshCw, MapPin } from 'lucide-react';
 
 function App() {
   const [ratings, setRatings] = useState(null);
+  const [hourlyData, setHourlyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -26,8 +28,9 @@ function App() {
         throw new Error('No location available');
       }
       
-      const hourlyData = await fetchWeatherData(targetLocation.lat, targetLocation.lng, forceRefresh);
-      const calculatedRatings = calculateAllHourlyRatings(hourlyData);
+      const fetchedHourlyData = await fetchWeatherData(targetLocation.lat, targetLocation.lng, forceRefresh);
+      const calculatedRatings = calculateAllHourlyRatings(fetchedHourlyData);
+      setHourlyData(fetchedHourlyData);
       setRatings(calculatedRatings);
       
       // Update timestamp
@@ -151,6 +154,11 @@ function App() {
           <div className="text-center py-12">
             <p className="text-red-600 dark:text-red-400 text-lg font-medium">{error}</p>
           </div>
+        )}
+
+        {/* Weather Summary */}
+        {hourlyData && !loading && (
+          <WeatherSummary hourlyData={hourlyData} />
         )}
 
         {ratings && (

@@ -10,7 +10,14 @@ const WEATHER_PARAMS = [
   'swellPeriod',
   'waterTemperature',
   'waveHeight',
-  'windSpeed'
+  'windSpeed',
+  'humidity',
+  'precipitation',
+  'pressure',
+  'dewPointTemperature',
+  'visibility',
+  'gust',
+  'windDirection'
 ];
 
 // --- CACHING CONFIGURATION ---
@@ -21,18 +28,18 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const mockWeatherData = {
   hours: [
     // Morning (Cooler, calmer)
-    { time: '2025-08-16T08:00:00+00:00', airTemperature: { sg: 22 }, cloudCover: { sg: 10 }, swellHeight: { sg: 1.2 }, swellPeriod: { sg: 8 }, waterTemperature: { sg: 23 }, waveHeight: { sg: 0.8 }, windSpeed: { sg: 2 } },
-    { time: '2025-08-16T09:00:00+00:00', airTemperature: { sg: 23 }, cloudCover: { sg: 15 }, swellHeight: { sg: 1.3 }, swellPeriod: { sg: 8 }, waterTemperature: { sg: 23 }, waveHeight: { sg: 0.9 }, windSpeed: { sg: 3 } },
-    { time: '2025-08-16T10:00:00+00:00', airTemperature: { sg: 25 }, cloudCover: { sg: 20 }, swellHeight: { sg: 1.5 }, swellPeriod: { sg: 7.5 }, waterTemperature: { sg: 24 }, waveHeight: { sg: 1.1 }, windSpeed: { sg: 4 } },
-    { time: '2025-08-16T11:00:00+00:00', airTemperature: { sg: 26 }, cloudCover: { sg: 25 }, swellHeight: { sg: 1.8 }, swellPeriod: { sg: 7 }, waterTemperature: { sg: 24 }, waveHeight: { sg: 1.2 }, windSpeed: { sg: 5 } },
+    { time: '2025-08-16T08:00:00+00:00', airTemperature: { sg: 22 }, cloudCover: { sg: 10 }, swellHeight: { sg: 1.2 }, swellPeriod: { sg: 8 }, waterTemperature: { sg: 23 }, waveHeight: { sg: 0.8 }, windSpeed: { sg: 2 }, humidity: { sg: 65 }, precipitation: { sg: 0 }, pressure: { sg: 1015 }, dewPointTemperature: { sg: 15 }, visibility: { sg: 10 }, gust: { sg: 3 }, windDirection: { sg: 180 } },
+    { time: '2025-08-16T09:00:00+00:00', airTemperature: { sg: 23 }, cloudCover: { sg: 15 }, swellHeight: { sg: 1.3 }, swellPeriod: { sg: 8 }, waterTemperature: { sg: 23 }, waveHeight: { sg: 0.9 }, windSpeed: { sg: 3 }, humidity: { sg: 62 }, precipitation: { sg: 0 }, pressure: { sg: 1014 }, dewPointTemperature: { sg: 16 }, visibility: { sg: 10 }, gust: { sg: 4 }, windDirection: { sg: 185 } },
+    { time: '2025-08-16T10:00:00+00:00', airTemperature: { sg: 25 }, cloudCover: { sg: 20 }, swellHeight: { sg: 1.5 }, swellPeriod: { sg: 7.5 }, waterTemperature: { sg: 24 }, waveHeight: { sg: 1.1 }, windSpeed: { sg: 4 }, humidity: { sg: 58 }, precipitation: { sg: 0 }, pressure: { sg: 1013 }, dewPointTemperature: { sg: 17 }, visibility: { sg: 10 }, gust: { sg: 5 }, windDirection: { sg: 190 } },
+    { time: '2025-08-16T11:00:00+00:00', airTemperature: { sg: 26 }, cloudCover: { sg: 25 }, swellHeight: { sg: 1.8 }, swellPeriod: { sg: 7 }, waterTemperature: { sg: 24 }, waveHeight: { sg: 1.2 }, windSpeed: { sg: 5 }, humidity: { sg: 55 }, precipitation: { sg: 0 }, pressure: { sg: 1012 }, dewPointTemperature: { sg: 17 }, visibility: { sg: 9 }, gust: { sg: 6 }, windDirection: { sg: 195 } },
     // Midday (Hottest, wind picks up)
-    { time: '2025-08-16T12:00:00+00:00', airTemperature: { sg: 28 }, cloudCover: { sg: 30 }, swellHeight: { sg: 2.0 }, swellPeriod: { sg: 6.5 }, waterTemperature: { sg: 25 }, waveHeight: { sg: 1.5 }, windSpeed: { sg: 6 } },
-    { time: '2025-08-16T13:00:00+00:00', airTemperature: { sg: 29 }, cloudCover: { sg: 40 }, swellHeight: { sg: 2.1 }, swellPeriod: { sg: 6 }, waterTemperature: { sg: 25 }, waveHeight: { sg: 1.6 }, windSpeed: { sg: 7 } },
-    { time: '2025-08-16T14:00:00+00:00', airTemperature: { sg: 29 }, cloudCover: { sg: 50 }, swellHeight: { sg: 2.0 }, swellPeriod: { sg: 6 }, waterTemperature: { sg: 25 }, waveHeight: { sg: 1.5 }, windSpeed: { sg: 7 } },
+    { time: '2025-08-16T12:00:00+00:00', airTemperature: { sg: 28 }, cloudCover: { sg: 30 }, swellHeight: { sg: 2.0 }, swellPeriod: { sg: 6.5 }, waterTemperature: { sg: 25 }, waveHeight: { sg: 1.5 }, windSpeed: { sg: 6 }, humidity: { sg: 52 }, precipitation: { sg: 0 }, pressure: { sg: 1011 }, dewPointTemperature: { sg: 18 }, visibility: { sg: 8 }, gust: { sg: 8 }, windDirection: { sg: 200 } },
+    { time: '2025-08-16T13:00:00+00:00', airTemperature: { sg: 29 }, cloudCover: { sg: 40 }, swellHeight: { sg: 2.1 }, swellPeriod: { sg: 6 }, waterTemperature: { sg: 25 }, waveHeight: { sg: 1.6 }, windSpeed: { sg: 7 }, humidity: { sg: 50 }, precipitation: { sg: 0.1 }, pressure: { sg: 1010 }, dewPointTemperature: { sg: 18 }, visibility: { sg: 7 }, gust: { sg: 9 }, windDirection: { sg: 205 } },
+    { time: '2025-08-16T14:00:00+00:00', airTemperature: { sg: 29 }, cloudCover: { sg: 50 }, swellHeight: { sg: 2.0 }, swellPeriod: { sg: 6 }, waterTemperature: { sg: 25 }, waveHeight: { sg: 1.5 }, windSpeed: { sg: 7 }, humidity: { sg: 48 }, precipitation: { sg: 0.2 }, pressure: { sg: 1009 }, dewPointTemperature: { sg: 17 }, visibility: { sg: 6 }, gust: { sg: 9 }, windDirection: { sg: 210 } },
     // Afternoon (Clouds increase, wind may drop)
-    { time: '2025-08-16T15:00:00+00:00', airTemperature: { sg: 28 }, cloudCover: { sg: 60 }, swellHeight: { sg: 1.9 }, swellPeriod: { sg: 6.5 }, waterTemperature: { sg: 25 }, waveHeight: { sg: 1.4 }, windSpeed: { sg: 6 } },
-    { time: '2025-08-16T16:00:00+00:00', airTemperature: { sg: 27 }, cloudCover: { sg: 55 }, swellHeight: { sg: 1.8 }, swellPeriod: { sg: 7 }, waterTemperature: { sg: 24 }, waveHeight: { sg: 1.3 }, windSpeed: { sg: 5 } },
-    { time: '2025-08-16T17:00:00+00:00', airTemperature: { sg: 26 }, cloudCover: { sg: 45 }, swellHeight: { sg: 1.6 }, swellPeriod: { sg: 7.5 }, waterTemperature: { sg: 24 }, waveHeight: { sg: 1.1 }, windSpeed: { sg: 4 } },
+    { time: '2025-08-16T15:00:00+00:00', airTemperature: { sg: 28 }, cloudCover: { sg: 60 }, swellHeight: { sg: 1.9 }, swellPeriod: { sg: 6.5 }, waterTemperature: { sg: 25 }, waveHeight: { sg: 1.4 }, windSpeed: { sg: 6 }, humidity: { sg: 55 }, precipitation: { sg: 0.3 }, pressure: { sg: 1010 }, dewPointTemperature: { sg: 19 }, visibility: { sg: 5 }, gust: { sg: 7 }, windDirection: { sg: 215 } },
+    { time: '2025-08-16T16:00:00+00:00', airTemperature: { sg: 27 }, cloudCover: { sg: 55 }, swellHeight: { sg: 1.8 }, swellPeriod: { sg: 7 }, waterTemperature: { sg: 24 }, waveHeight: { sg: 1.3 }, windSpeed: { sg: 5 }, humidity: { sg: 60 }, precipitation: { sg: 0.1 }, pressure: { sg: 1011 }, dewPointTemperature: { sg: 19 }, visibility: { sg: 6 }, gust: { sg: 6 }, windDirection: { sg: 220 } },
+    { time: '2025-08-16T17:00:00+00:00', airTemperature: { sg: 26 }, cloudCover: { sg: 45 }, swellHeight: { sg: 1.6 }, swellPeriod: { sg: 7.5 }, waterTemperature: { sg: 24 }, waveHeight: { sg: 1.1 }, windSpeed: { sg: 4 }, humidity: { sg: 65 }, precipitation: { sg: 0 }, pressure: { sg: 1012 }, dewPointTemperature: { sg: 19 }, visibility: { sg: 8 }, gust: { sg: 5 }, windDirection: { sg: 225 } },
   ],
 };
 
@@ -218,4 +225,67 @@ export const calculateAllHourlyRatings = (hourlyData) => {
     }));
   }
   return masterRatings;
+};
+
+// --- CURRENT WEATHER EXTRACTION ---
+// Function to get current weather data (first hour of the day or closest to current time)
+export const getCurrentWeatherData = (hourlyData) => {
+  if (!hourlyData || hourlyData.length === 0) return null;
+  
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // Find the closest hour to current time, or use first available hour
+  let closestHour = hourlyData[0];
+  let minDiff = Infinity;
+  
+  for (const hour of hourlyData) {
+    const hourTime = new Date(hour.time);
+    const hourOfDay = hourTime.getHours();
+    const diff = Math.abs(hourOfDay - currentHour);
+    
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestHour = hour;
+    }
+  }
+  
+  return closestHour;
+};
+
+// --- UTILITY FUNCTIONS FOR WEATHER DISPLAY ---
+export const calculateFeelsLike = (temp, humidity) => {
+  // Simple heat index calculation for "feels like" temperature
+  if (temp < 27) return temp; // Below 80°F, feels like equals actual temp
+  
+  const rh = humidity;
+  const t = temp;
+  
+  // Simplified heat index formula
+  const hi = -8.78469475556 +
+             1.61139411 * t +
+             2.33854883889 * rh +
+             -0.14611605 * t * rh +
+             -0.012308094 * t * t +
+             -0.0164248277778 * rh * rh +
+             0.002211732 * t * t * rh +
+             0.00072546 * t * rh * rh +
+             -0.000003582 * t * t * rh * rh;
+  
+  return Math.round(hi);
+};
+
+export const getWindDirection = (degrees) => {
+  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const index = Math.round(degrees / 22.5) % 16;
+  return directions[index];
+};
+
+export const getPrecipitationChance = (precipitation, cloudCover) => {
+  // Estimate precipitation chance based on precipitation amount and cloud cover
+  if (precipitation > 0.5) return Math.min(90, 60 + cloudCover * 0.3);
+  if (precipitation > 0.1) return Math.min(70, 30 + cloudCover * 0.4);
+  if (cloudCover > 70) return Math.min(40, cloudCover * 0.4);
+  if (cloudCover > 40) return Math.min(20, cloudCover * 0.2);
+  return Math.max(0, cloudCover * 0.1);
 };
