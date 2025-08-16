@@ -16,12 +16,15 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [showLocationInput, setShowLocationInput] = useState(false);
+  const [apiQuota, setApiQuota] = useState(null);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
 
   const loadWeatherData = async (location = null, forceRefresh = false) => {
     try {
       setLoading(!forceRefresh); // Don't show main loading if it's just a refresh
       setRefreshing(forceRefresh);
       setError(null);
+      setQuotaExceeded(false);
       
       // Use provided location or current location
       const targetLocation = location || currentLocation;
@@ -29,16 +32,28 @@ function App() {
         throw new Error('No location available');
       }
       
-      const fetchedHourlyData = await fetchWeatherData(targetLocation.lat, targetLocation.lng, forceRefresh);
-      const calculatedRatings = calculateAllHourlyRatings(fetchedHourlyData);
-      setHourlyData(fetchedHourlyData);
+      const fetchedData = await fetchWeatherData(targetLocation.lat, targetLocation.lng, forceRefresh);
+      const calculatedRatings = calculateAllHourlyRatings(fetchedData.hours);
+      setHourlyData(fetchedData.hours);
       setRatings(calculatedRatings);
+      
+      // Store API quota information if available
+      if (fetchedData.meta) {
+        setApiQuota(fetchedData.meta);
+      }
       
       // Update timestamp
       const timestamp = getCacheTimestamp(targetLocation.lat, targetLocation.lng);
       setLastUpdated(timestamp || Date.now());
     } catch (err) {
-      setError("Failed to load weather data.");
+      // Handle quota exceeded error specially
+      if (err.message === 'API quota exceeded' && err.quotaMeta) {
+        setQuotaExceeded(true);
+        setApiQuota(err.quotaMeta);
+        setError("API quota exceeded. Showing cached data.");
+      } else {
+        setError("Failed to load weather data.");
+      }
       console.error(err);
     } finally {
       setLoading(false);
@@ -47,7 +62,7 @@ function App() {
   };
 
   const handleRefresh = async () => {
-    if (currentLocation) {
+    if (currentLocation && !quotaExceeded) {
       clearCache(currentLocation.lat, currentLocation.lng);
       await loadWeatherData(null, true);
     }
@@ -132,15 +147,31 @@ function App() {
                 Last updated: {formatTimestamp(lastUpdated)}
               </span>
             )}
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Refresh weather data"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh'}
-            </button>
+            {quotaExceeded ? (
+              <div className="flex items-center gap-1 px-3 py-1 rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+                <span className="text-sm font-medium">Calls Exhausted</span>
+                {apiQuota && apiQuota.dailyQuota && apiQuota.requestCount !== undefined && (
+                  <span className="text-red-500 dark:text-red-400 font-normal text-sm">
+                    ({apiQuota.requestCount}/{apiQuota.dailyQuota})
+                  </span>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh weather data"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+                {apiQuota && apiQuota.dailyQuota && apiQuota.requestCount !== undefined && !quotaExceeded && (
+                  <span className="text-gray-400 dark:text-gray-500 font-normal">
+                    ({apiQuota.dailyQuota - apiQuota.requestCount})
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </header>
 

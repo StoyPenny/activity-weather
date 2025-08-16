@@ -75,12 +75,36 @@ const fetchStormglassData = async (lat, lng) => {
     }
   });
 
+  // Handle 402 Payment Required (quota exceeded) specifically
+  if (response.status === 402) {
+    try {
+      const data = await response.json();
+      if (data.meta) {
+        throw new Error(`API_QUOTA_EXCEEDED:${JSON.stringify(data.meta)}`);
+      }
+    } catch {
+      // If we can't parse the response, create a generic quota exceeded error
+      console.warn('Could not parse 402 response, assuming quota exceeded');
+    }
+    // Generic quota exceeded error when we can't get specific meta data
+    throw new Error(`API_QUOTA_EXCEEDED:{"dailyQuota": 10, "requestCount": "unknown"}`);
+  }
+
   if (!response.ok) {
     throw new Error(`Stormglass API error: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
-  return data.hours;
+
+  // Check if API quota is exceeded via error message
+  if (data.errors && data.errors.key === "API quota exceeded" && data.meta) {
+    throw new Error(`API_QUOTA_EXCEEDED:${JSON.stringify(data.meta)}`);
+  }
+
+  return {
+    hours: data.hours,
+    meta: data.meta
+  };
 };
 
 // --- CACHE MANAGEMENT FUNCTIONS ---
@@ -183,15 +207,40 @@ export const fetchWeatherData = async (lat, lng, forceRefresh = false) => {
     const liveData = await fetchStormglassData(lat, lng);
     console.log('Successfully fetched live weather data');
     
-    // Cache the fresh data
+    // Cache the fresh data (now includes both hours and meta)
     setCachedData(liveData, lat, lng);
     
     return liveData;
   } catch (error) {
+    // Check if this is a quota exceeded error
+    if (error.message.startsWith('API_QUOTA_EXCEEDED:')) {
+      const metaString = error.message.replace('API_QUOTA_EXCEEDED:', '');
+      const quotaMeta = JSON.parse(metaString);
+      console.warn('API quota exceeded. Preserving cached data if available.');
+      
+      // Try to return cached data without clearing it
+      const cached = getCachedData(lat, lng);
+      if (cached) {
+        // Return cached data but with updated quota meta
+        return {
+          ...cached.data,
+          meta: quotaMeta
+        };
+      }
+      
+      // If no cache available, throw quota exceeded error with meta
+      const quotaError = new Error('API quota exceeded');
+      quotaError.quotaMeta = quotaMeta;
+      throw quotaError;
+    }
+    
     console.warn('Failed to fetch live weather data, falling back to mock data:', error.message);
     // Simulate loading time even for fallback
     await new Promise(resolve => setTimeout(resolve, 500));
-    return mockWeatherData.hours;
+    return {
+      hours: mockWeatherData.hours,
+      meta: null // No quota info for mock data
+    };
   }
 };
 
