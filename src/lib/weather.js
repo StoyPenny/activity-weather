@@ -2,12 +2,6 @@
 const STORMGLASS_API_KEY = import.meta.env.VITE_STORMGLASS_API_KEY;
 const STORMGLASS_BASE_URL = 'https://api.stormglass.io/v2/weather/point';
 
-// Port Orange, FL coordinates
-const PORT_ORANGE_COORDS = {
-  lat: 29.1386,
-  lng: -81.0067
-};
-
 // Parameters we need from the API (matching our current data structure)
 const WEATHER_PARAMS = [
   'airTemperature',
@@ -20,7 +14,6 @@ const WEATHER_PARAMS = [
 ];
 
 // --- CACHING CONFIGURATION ---
-const CACHE_KEY = 'stormglass_weather_data';
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 
 // --- MOCK DATA SERVICE (FALLBACK) ---
@@ -44,9 +37,15 @@ const mockWeatherData = {
 };
 
 // --- STORMGLASS API SERVICE ---
-const fetchStormglassData = async () => {
+const fetchStormglassData = async (lat, lng) => {
   if (!STORMGLASS_API_KEY) {
     throw new Error('STORMGLASS_API_KEY not found in environment variables');
+  }
+
+  // Validate coordinates
+  if (typeof lat !== 'number' || typeof lng !== 'number' ||
+      lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    throw new Error('Invalid coordinates provided');
   }
 
   // Get today's date range (start of day to end of day)
@@ -56,8 +55,8 @@ const fetchStormglassData = async () => {
   endOfDay.setDate(endOfDay.getDate() + 1);
 
   const params = new URLSearchParams({
-    lat: PORT_ORANGE_COORDS.lat.toString(),
-    lng: PORT_ORANGE_COORDS.lng.toString(),
+    lat: lat.toString(),
+    lng: lng.toString(),
     params: WEATHER_PARAMS.join(','),
     start: Math.floor(startOfDay.getTime() / 1000).toString(),
     end: Math.floor(endOfDay.getTime() / 1000).toString()
@@ -78,9 +77,17 @@ const fetchStormglassData = async () => {
 };
 
 // --- CACHE MANAGEMENT FUNCTIONS ---
-const getCachedData = () => {
+const generateCacheKey = (lat, lng) => {
+  // Round to 3 decimal places for cache key (roughly 100m precision)
+  const roundedLat = Math.round(lat * 1000) / 1000;
+  const roundedLng = Math.round(lng * 1000) / 1000;
+  return `weather_${roundedLat}_${roundedLng}`;
+};
+
+const getCachedData = (lat, lng) => {
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cacheKey = generateCacheKey(lat, lng);
+    const cached = localStorage.getItem(cacheKey);
     if (!cached) return null;
     
     const { data, timestamp } = JSON.parse(cached);
@@ -88,41 +95,58 @@ const getCachedData = () => {
     
     // Check if cache is still valid (within 1 hour)
     if (now - timestamp < CACHE_DURATION) {
-      console.log('Using cached weather data');
+      console.log(`Using cached weather data for ${lat}, ${lng}`);
       return { data, timestamp };
     } else {
       console.log('Cache expired, will fetch fresh data');
-      localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(cacheKey);
       return null;
     }
   } catch (error) {
     console.warn('Error reading cache:', error);
-    localStorage.removeItem(CACHE_KEY);
+    const cacheKey = generateCacheKey(lat, lng);
+    localStorage.removeItem(cacheKey);
     return null;
   }
 };
 
-const setCachedData = (data) => {
+const setCachedData = (data, lat, lng) => {
   try {
+    const cacheKey = generateCacheKey(lat, lng);
     const cacheObject = {
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      location: { lat, lng }
     };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheObject));
-    console.log('Weather data cached successfully');
+    localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
+    console.log(`Weather data cached successfully for ${lat}, ${lng}`);
   } catch (error) {
     console.warn('Error caching data:', error);
   }
 };
 
-export const clearCache = () => {
-  localStorage.removeItem(CACHE_KEY);
-  console.log('Weather cache cleared');
+export const clearCache = (lat, lng) => {
+  if (lat !== undefined && lng !== undefined) {
+    // Clear cache for specific location
+    const cacheKey = generateCacheKey(lat, lng);
+    localStorage.removeItem(cacheKey);
+    console.log(`Weather cache cleared for ${lat}, ${lng}`);
+  } else {
+    // Clear all weather caches
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('weather_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    console.log('All weather caches cleared');
+  }
 };
 
-export const getCacheTimestamp = () => {
+export const getCacheTimestamp = (lat, lng) => {
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cacheKey = generateCacheKey(lat, lng);
+    const cached = localStorage.getItem(cacheKey);
     if (!cached) return null;
     
     const { timestamp } = JSON.parse(cached);
@@ -133,22 +157,27 @@ export const getCacheTimestamp = () => {
 };
 
 // --- MAIN FETCH FUNCTION WITH CACHING AND FALLBACK ---
-export const fetchWeatherData = async (forceRefresh = false) => {
+export const fetchWeatherData = async (lat, lng, forceRefresh = false) => {
+  // Validate coordinates
+  if (typeof lat !== 'number' || typeof lng !== 'number') {
+    throw new Error('Invalid coordinates: lat and lng must be numbers');
+  }
+
   // Check cache first unless force refresh is requested
   if (!forceRefresh) {
-    const cached = getCachedData();
+    const cached = getCachedData(lat, lng);
     if (cached) {
       return cached.data;
     }
   }
 
   try {
-    console.log('Attempting to fetch live weather data from Stormglass API...');
-    const liveData = await fetchStormglassData();
+    console.log(`Attempting to fetch live weather data from Stormglass API for ${lat}, ${lng}...`);
+    const liveData = await fetchStormglassData(lat, lng);
     console.log('Successfully fetched live weather data');
     
     // Cache the fresh data
-    setCachedData(liveData);
+    setCachedData(liveData, lat, lng);
     
     return liveData;
   } catch (error) {

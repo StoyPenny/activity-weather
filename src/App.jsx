@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { fetchWeatherData, calculateAllHourlyRatings, getCacheTimestamp, clearCache } from "./lib/weather";
+import { getCurrentLocationOrDefault, saveLocation } from "./lib/location";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
-import { RefreshCw } from 'lucide-react';
+import LocationInput from "./components/LocationInput";
+import { RefreshCw, MapPin } from 'lucide-react';
 
 function App() {
   const [ratings, setRatings] = useState(null);
@@ -9,19 +11,27 @@ function App() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [showLocationInput, setShowLocationInput] = useState(false);
 
-  const loadWeatherData = async (forceRefresh = false) => {
+  const loadWeatherData = async (location = null, forceRefresh = false) => {
     try {
       setLoading(!forceRefresh); // Don't show main loading if it's just a refresh
       setRefreshing(forceRefresh);
       setError(null);
       
-      const hourlyData = await fetchWeatherData(forceRefresh);
+      // Use provided location or current location
+      const targetLocation = location || currentLocation;
+      if (!targetLocation) {
+        throw new Error('No location available');
+      }
+      
+      const hourlyData = await fetchWeatherData(targetLocation.lat, targetLocation.lng, forceRefresh);
       const calculatedRatings = calculateAllHourlyRatings(hourlyData);
       setRatings(calculatedRatings);
       
       // Update timestamp
-      const timestamp = getCacheTimestamp();
+      const timestamp = getCacheTimestamp(targetLocation.lat, targetLocation.lng);
       setLastUpdated(timestamp || Date.now());
     } catch (err) {
       setError("Failed to load weather data.");
@@ -33,12 +43,52 @@ function App() {
   };
 
   const handleRefresh = async () => {
-    clearCache();
-    await loadWeatherData(true);
+    if (currentLocation) {
+      clearCache(currentLocation.lat, currentLocation.lng);
+      await loadWeatherData(null, true);
+    }
   };
 
+  const handleLocationChange = async (newLocation) => {
+    try {
+      // Save the new location
+      saveLocation(newLocation);
+      setCurrentLocation(newLocation);
+      
+      // Load weather data for the new location
+      await loadWeatherData(newLocation, true); // Force refresh for new location
+    } catch (err) {
+      setError("Failed to update location.");
+      console.error(err);
+    }
+  };
+
+  const handleShowLocationInput = () => {
+    setShowLocationInput(true);
+  };
+
+  const handleCloseLocationInput = () => {
+    setShowLocationInput(false);
+  };
+
+  // Initialize location and load weather data on app start
   useEffect(() => {
-    loadWeatherData();
+    const initializeApp = async () => {
+      try {
+        // Get current location (from storage or default)
+        const location = getCurrentLocationOrDefault();
+        setCurrentLocation(location);
+        
+        // Load weather data for the location
+        await loadWeatherData(location);
+      } catch (err) {
+        setError("Failed to initialize app.");
+        console.error(err);
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
   }, []);
 
   const formatTimestamp = (timestamp) => {
@@ -60,9 +110,16 @@ function App() {
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-white mb-4">
             Hourly Activity Planner
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-4">
-            Full-day activity ratings for Port Orange, Florida
-          </p>
+          <div className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-4">
+            <p className="mb-2">Full-day activity ratings for</p>
+            <button
+              onClick={handleShowLocationInput}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium"
+            >
+              <MapPin className="w-4 h-4" />
+              {currentLocation ? currentLocation.name : 'Loading location...'}
+            </button>
+          </div>
           
           {/* Data freshness and refresh controls */}
           <div className="flex items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
@@ -102,6 +159,15 @@ function App() {
               <ActivityTimelineCard key={activity} title={activity} hourlyRatings={hourlyRatings} />
             ))}
           </div>
+        )}
+
+        {/* Location Input Modal */}
+        {showLocationInput && currentLocation && (
+          <LocationInput
+            currentLocation={currentLocation}
+            onLocationChange={handleLocationChange}
+            onClose={handleCloseLocationInput}
+          />
         )}
       </main>
     </div>
