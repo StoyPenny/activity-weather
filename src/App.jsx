@@ -4,6 +4,7 @@ import { getCurrentLocationOrDefault, saveLocation } from "./lib/location";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
 import LocationInput from "./components/LocationInput";
 import WeatherSummary from "./components/WeatherSummary";
+import WeatherChart from "./components/WeatherChart";
 import { RefreshCw, MapPin } from 'lucide-react';
 
 function App() {
@@ -159,6 +160,11 @@ function App() {
         {/* Weather Summary */}
         {hourlyData && !loading && (
           <WeatherSummary hourlyData={hourlyData} />
+        )}
+
+        {/* Weather Chart */}
+        {hourlyData && !loading && (
+          <WeatherChart hourlyData={hourlyData} />
         )}
 
         {ratings && (
