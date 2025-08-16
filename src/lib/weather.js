@@ -19,6 +19,10 @@ const WEATHER_PARAMS = [
   'windSpeed'
 ];
 
+// --- CACHING CONFIGURATION ---
+const CACHE_KEY = 'stormglass_weather_data';
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+
 // --- MOCK DATA SERVICE (FALLBACK) ---
 // This now includes data for multiple hours to simulate a daily forecast.
 const mockWeatherData = {
@@ -73,12 +77,79 @@ const fetchStormglassData = async () => {
   return data.hours;
 };
 
-// --- MAIN FETCH FUNCTION WITH FALLBACK ---
-export const fetchWeatherData = async () => {
+// --- CACHE MANAGEMENT FUNCTIONS ---
+const getCachedData = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+    
+    const { data, timestamp } = JSON.parse(cached);
+    const now = Date.now();
+    
+    // Check if cache is still valid (within 1 hour)
+    if (now - timestamp < CACHE_DURATION) {
+      console.log('Using cached weather data');
+      return { data, timestamp };
+    } else {
+      console.log('Cache expired, will fetch fresh data');
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+  } catch (error) {
+    console.warn('Error reading cache:', error);
+    localStorage.removeItem(CACHE_KEY);
+    return null;
+  }
+};
+
+const setCachedData = (data) => {
+  try {
+    const cacheObject = {
+      data,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheObject));
+    console.log('Weather data cached successfully');
+  } catch (error) {
+    console.warn('Error caching data:', error);
+  }
+};
+
+export const clearCache = () => {
+  localStorage.removeItem(CACHE_KEY);
+  console.log('Weather cache cleared');
+};
+
+export const getCacheTimestamp = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+    
+    const { timestamp } = JSON.parse(cached);
+    return timestamp;
+  } catch {
+    return null;
+  }
+};
+
+// --- MAIN FETCH FUNCTION WITH CACHING AND FALLBACK ---
+export const fetchWeatherData = async (forceRefresh = false) => {
+  // Check cache first unless force refresh is requested
+  if (!forceRefresh) {
+    const cached = getCachedData();
+    if (cached) {
+      return cached.data;
+    }
+  }
+
   try {
     console.log('Attempting to fetch live weather data from Stormglass API...');
     const liveData = await fetchStormglassData();
     console.log('Successfully fetched live weather data');
+    
+    // Cache the fresh data
+    setCachedData(liveData);
+    
     return liveData;
   } catch (error) {
     console.warn('Failed to fetch live weather data, falling back to mock data:', error.message);

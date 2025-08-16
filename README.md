@@ -5,6 +5,8 @@ This project is a React application that displays the best time of day for vario
 ## Features
 
 - **Live Weather Data**: Integrates with Stormglass API for real-time weather conditions
+- **Smart Caching**: Automatically caches data for 1 hour to reduce API calls and improve performance
+- **Data Freshness**: Shows timestamp of last update with manual refresh option
 - **8 Activity Types**: Surfing, Fishing, Boating, Hiking, Camping, Beach Day, Kayaking, and Snorkeling
 - **Hourly Ratings**: Color-coded timeline showing optimal times for each activity
 - **Responsive Design**: Built with Tailwind CSS and shadcn/ui components
