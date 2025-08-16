@@ -1,4 +1,25 @@
-// --- MOCK DATA SERVICE ---
+// --- STORMGLASS API CONFIGURATION ---
+const STORMGLASS_API_KEY = import.meta.env.VITE_STORMGLASS_API_KEY;
+const STORMGLASS_BASE_URL = 'https://api.stormglass.io/v2/weather/point';
+
+// Port Orange, FL coordinates
+const PORT_ORANGE_COORDS = {
+  lat: 29.1386,
+  lng: -81.0067
+};
+
+// Parameters we need from the API (matching our current data structure)
+const WEATHER_PARAMS = [
+  'airTemperature',
+  'cloudCover',
+  'swellHeight',
+  'swellPeriod',
+  'waterTemperature',
+  'waveHeight',
+  'windSpeed'
+];
+
+// --- MOCK DATA SERVICE (FALLBACK) ---
 // This now includes data for multiple hours to simulate a daily forecast.
 const mockWeatherData = {
   hours: [
@@ -18,9 +39,53 @@ const mockWeatherData = {
   ],
 };
 
+// --- STORMGLASS API SERVICE ---
+const fetchStormglassData = async () => {
+  if (!STORMGLASS_API_KEY) {
+    throw new Error('STORMGLASS_API_KEY not found in environment variables');
+  }
+
+  // Get today's date range (start of day to end of day)
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(startOfDay);
+  endOfDay.setDate(endOfDay.getDate() + 1);
+
+  const params = new URLSearchParams({
+    lat: PORT_ORANGE_COORDS.lat.toString(),
+    lng: PORT_ORANGE_COORDS.lng.toString(),
+    params: WEATHER_PARAMS.join(','),
+    start: Math.floor(startOfDay.getTime() / 1000).toString(),
+    end: Math.floor(endOfDay.getTime() / 1000).toString()
+  });
+
+  const response = await fetch(`${STORMGLASS_BASE_URL}?${params}`, {
+    headers: {
+      'Authorization': STORMGLASS_API_KEY
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Stormglass API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.hours;
+};
+
+// --- MAIN FETCH FUNCTION WITH FALLBACK ---
 export const fetchWeatherData = async () => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return mockWeatherData.hours;
+  try {
+    console.log('Attempting to fetch live weather data from Stormglass API...');
+    const liveData = await fetchStormglassData();
+    console.log('Successfully fetched live weather data');
+    return liveData;
+  } catch (error) {
+    console.warn('Failed to fetch live weather data, falling back to mock data:', error.message);
+    // Simulate loading time even for fallback
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return mockWeatherData.hours;
+  }
 };
 
 // --- RATING LOGIC ---

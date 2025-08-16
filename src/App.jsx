@@ -34,7 +34,7 @@ function App() {
             Hourly Activity Planner
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Full-day activity ratings for South Daytona, Florida
+            Full-day activity ratings for Port Orange, Florida
           </p>
         </header>
 
