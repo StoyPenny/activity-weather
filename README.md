@@ -16,6 +16,9 @@ This project is a React application that displays the best time of day for vario
 - [Location Features](#location-features)
    - [Location Input Options](#location-input-options)
    - [Location Management](#location-management)
+- [Activity Scoring Customization](#activity-scoring-customization)
+   - [Customizable Parameters](#customizable-parameters)
+   - [Unit Conversion](#unit-conversion)
 - [Weather Parameters](#weather-parameters)
 - [Usage](#usage)
 - [API Usage](#api-usage)
@@ -38,6 +41,27 @@ This project is a React application that displays the best time of day for vario
 - **Hourly Ratings**: Color-coded timeline showing optimal times for each activity with nuanced feedback
 - **Responsive Design**: Built with Tailwind CSS and shadcn/ui components
 - **Fallback System**: Gracefully falls back to mock data if API is unavailable
+
+## Activity Scoring Customization
+
+This application now includes a powerful customization feature that allows users to fine-tune the activity scoring system based on their personal preferences.
+
+### Customizable Parameters
+
+For each of the 8 supported activities, you can customize the weather parameters that contribute to the activity rating.
+
+- **Add/Remove Parameters**: Add any weather parameter from the Stormglass API to an activity's rating or remove existing ones.
+- **Flexible Rating Scales**: Two types of rating scales are supported:
+   - **Normalize**: For parameters where an optimal value is preferred (e.g., temperature).
+   - **Inverse**: For parameters where a lower value is better (e.g., wind speed for kayaking).
+- **Save Preferences**: All customizations are saved to local storage and applied to future rating calculations.
+- **Reset to Defaults**: Easily reset all customizations back to the default settings at any time.
+
+### Unit Conversion
+
+- **Metric & Imperial Toggles**: A dedicated button in the header allows users to instantly switch between Metric (°C, m/s) and Imperial (°F, mph) units.
+- **Real-time Updates**: The customization modal updates in real-time to display values in the selected unit system.
+- **Seamless Conversion**: Input values are automatically converted and stored in a consistent format, regardless of the display unit.
 
 ## Setup
 
