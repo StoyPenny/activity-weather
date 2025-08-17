@@ -200,5 +200,5 @@ The app uses the following weather data for activity calculations:
 - Show the weather parameters that rank high for the day, and those that are ranking low. This will let users know what parameters are most strongly impacting the weather score and they can make assumptions or change their plans based on that information. Like maybe the beach day is not going to be that great today but then you find out that its mostly just the temperature parameter that is bringing the score down for the day, so you can dress differently and still go to the beach. If it were super windy you might not want to go even if it is nice out otherwise. 
 - Each location should have its own set of customization settings to allow for major differences in climate and activities from location to location (Miami Beach would have different requirements than Denver Colorado).
 - Ability to see more details about the different metrics used in the rating score when you hover over each hourly ticker in an activity card
-- Update the customization screen for entering in the API parameter names to upgrade it with a searchable drop down select menu that is prepopulated with all of the items from the [[Stormglass Weather API]]
--Add ability to have seasonal customizations. 
+- Update the customization screen for entering in the API parameter names to upgrade it with a searchable drop down select menu that is prepopulated with all of the items from the [Stormglass Weather API](https://docs.stormglass.io/#/weather)
+- Add ability to have seasonal customizations. 
