@@ -3,9 +3,10 @@ import { fetchWeatherData, calculateAllHourlyRatings, getCacheTimestamp, clearCa
 import { getCurrentLocationOrDefault, saveLocation } from "./lib/location";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
 import LocationInput from "./components/LocationInput";
+import CustomizationModal from "./components/CustomizationModal";
 import WeatherSummary from "./components/WeatherSummary";
 import WeatherChart from "./components/WeatherChart";
-import { RefreshCw, MapPin } from 'lucide-react';
+import { RefreshCw, MapPin, Settings } from 'lucide-react';
 
 function App() {
   const [ratings, setRatings] = useState(null);
@@ -16,6 +17,7 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [showLocationInput, setShowLocationInput] = useState(false);
+  const [showCustomizationModal, setShowCustomizationModal] = useState(false);
   const [needsInitialLocation, setNeedsInitialLocation] = useState(false);
   const [apiQuota, setApiQuota] = useState(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
@@ -99,6 +101,22 @@ function App() {
     }
   };
 
+  const handleShowCustomization = () => {
+    setShowCustomizationModal(true);
+  };
+
+  const handleCloseCustomization = () => {
+    setShowCustomizationModal(false);
+  };
+
+  const handleSaveCustomization = () => {
+    // Reload weather data to apply new settings
+    if (currentLocation) {
+      loadWeatherData(currentLocation);
+    }
+    setShowCustomizationModal(false);
+  };
+
   // Initialize location and load weather data on app start
   useEffect(() => {
     const initializeApp = async () => {
@@ -165,6 +183,14 @@ function App() {
                 Last updated: {formatTimestamp(lastUpdated)}
               </span>
             )}
+            <button
+              onClick={handleShowCustomization}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Customize activity scoring"
+            >
+              <Settings className="w-4 h-4" />
+              Customize
+            </button>
             {quotaExceeded ? (
               <div className="flex items-center gap-1 px-3 py-1 rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
                 <span className="text-sm font-medium">Calls Exhausted</span>
@@ -241,6 +267,14 @@ function App() {
             onLocationChange={handleLocationChange}
             onClose={handleCloseLocationInput}
             isInitialSetup={needsInitialLocation}
+          />
+        )}
+        
+        {/* Customization Modal */}
+        {showCustomizationModal && (
+          <CustomizationModal
+            onClose={handleCloseCustomization}
+            onSave={handleSaveCustomization}
           />
         )}
       </main>

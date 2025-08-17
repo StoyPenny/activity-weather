@@ -2,6 +2,9 @@
 const STORMGLASS_API_KEY = import.meta.env.VITE_STORMGLASS_API_KEY;
 const STORMGLASS_BASE_URL = 'https://api.stormglass.io/v2/weather/point';
 
+// Import settings management functions
+import { getEffectiveSettings } from './settings';
+
 // Parameters we need from the API (matching our current data structure)
 const WEATHER_PARAMS = [
   'airTemperature',
@@ -260,18 +263,101 @@ export const fetchWeatherData = async (lat, lng, forceRefresh = false) => {
 const normalize = (value, optimal, range) => Math.max(0, 10 - (Math.abs(value - optimal) / range) * 10);
 const inverseNormalize = (value, max) => Math.max(0, 10 - (value / max) * 10);
 
-const rateSurfing = (d) => (normalize(d.swellHeight.sg, 1.5, 1.5) + normalize(d.swellPeriod.sg, 8, 4) + normalize(d.windSpeed.sg, 3, 5)) / 3;
-const rateFishing = (d) => (inverseNormalize(d.windSpeed.sg, 10) + normalize(d.cloudCover.sg, 40, 30)) / 2;
-const rateBoating = (d) => (inverseNormalize(d.windSpeed.sg, 12) + inverseNormalize(d.waveHeight.sg, 1)) / 2;
-const rateHiking = (d) => (normalize(d.airTemperature.sg, 22, 10) + inverseNormalize(d.windSpeed.sg, 10) + inverseNormalize(d.cloudCover.sg, 80)) / 3;
-const rateCamping = (d) => (normalize(d.airTemperature.sg, 20, 10) + inverseNormalize(d.windSpeed.sg, 8) + inverseNormalize(d.cloudCover.sg, 90)) / 3;
-const rateBeachDay = (d) => (normalize(d.airTemperature.sg, 28, 8) + normalize(d.windSpeed.sg, 4, 6) + normalize(d.cloudCover.sg, 15, 20)) / 3;
-const rateKayaking = (d) => (inverseNormalize(d.windSpeed.sg, 6) + inverseNormalize(d.waveHeight.sg, 0.5)) / 2;
-const rateSnorkeling = (d) => (normalize(d.waterTemperature.sg, 26, 6) + inverseNormalize(d.waveHeight.sg, 0.3)) / 2;
+// Generic rating function that works with parameter configurations
+const rateWithParameters = (data, parameters) => {
+  const ratings = [];
+  
+  for (const [paramName, paramConfig] of Object.entries(parameters)) {
+    // Skip if the parameter doesn't exist in the data
+    if (!data[paramName] || data[paramName].sg === undefined) {
+      console.warn(`Parameter ${paramName} not found in weather data`);
+      continue;
+    }
+    
+    const value = data[paramName].sg;
+    
+    if (paramConfig.type === 'normalize') {
+      ratings.push(normalize(value, paramConfig.optimal, paramConfig.range));
+    } else if (paramConfig.type === 'inverse') {
+      ratings.push(inverseNormalize(value, paramConfig.max));
+    }
+  }
+  
+  // Return average of all parameter ratings, or 0 if no valid parameters
+  return ratings.length > 0 ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : 0;
+};
+
+// Updated rating functions that use parameter configurations
+const rateSurfing = (d, params) => {
+  if (params) {
+    return rateWithParameters(d, params);
+  }
+  // Fallback to original hardcoded values
+  return (normalize(d.swellHeight.sg, 1.5, 1.5) + normalize(d.swellPeriod.sg, 8, 4) + normalize(d.windSpeed.sg, 3, 5)) / 3;
+};
+
+const rateFishing = (d, params) => {
+  if (params) {
+    return rateWithParameters(d, params);
+  }
+  // Fallback to original hardcoded values
+  return (inverseNormalize(d.windSpeed.sg, 10) + normalize(d.cloudCover.sg, 40, 30)) / 2;
+};
+
+const rateBoating = (d, params) => {
+  if (params) {
+    return rateWithParameters(d, params);
+  }
+  // Fallback to original hardcoded values
+  return (inverseNormalize(d.windSpeed.sg, 12) + inverseNormalize(d.waveHeight.sg, 1)) / 2;
+};
+
+const rateHiking = (d, params) => {
+  if (params) {
+    return rateWithParameters(d, params);
+  }
+  // Fallback to original hardcoded values
+  return (normalize(d.airTemperature.sg, 22, 10) + inverseNormalize(d.windSpeed.sg, 10) + inverseNormalize(d.cloudCover.sg, 80)) / 3;
+};
+
+const rateCamping = (d, params) => {
+  if (params) {
+    return rateWithParameters(d, params);
+  }
+  // Fallback to original hardcoded values
+  return (normalize(d.airTemperature.sg, 20, 10) + inverseNormalize(d.windSpeed.sg, 8) + inverseNormalize(d.cloudCover.sg, 90)) / 3;
+};
+
+const rateBeachDay = (d, params) => {
+  if (params) {
+    return rateWithParameters(d, params);
+  }
+  // Fallback to original hardcoded values
+  return (normalize(d.airTemperature.sg, 28, 8) + normalize(d.windSpeed.sg, 4, 6) + normalize(d.cloudCover.sg, 15, 20)) / 3;
+};
+
+const rateKayaking = (d, params) => {
+  if (params) {
+    return rateWithParameters(d, params);
+  }
+  // Fallback to original hardcoded values
+  return (inverseNormalize(d.windSpeed.sg, 6) + inverseNormalize(d.waveHeight.sg, 0.5)) / 2;
+};
+
+const rateSnorkeling = (d, params) => {
+  if (params) {
+    return rateWithParameters(d, params);
+  }
+  // Fallback to original hardcoded values
+  return (normalize(d.waterTemperature.sg, 26, 6) + inverseNormalize(d.waveHeight.sg, 0.3)) / 2;
+};
 
 // --- Main Calculation Function - MODIFIED ---
 // This now processes an array of hourly data and returns ratings for each hour.
 export const calculateAllHourlyRatings = (hourlyData) => {
+  // Get effective settings (defaults merged with user preferences)
+  const settings = getEffectiveSettings();
+  
   const activities = {
     Surfing: rateSurfing, Fishing: rateFishing, Boating: rateBoating,
     Hiking: rateHiking, Camping: rateCamping, 'Beach Day': rateBeachDay,
@@ -280,9 +366,12 @@ export const calculateAllHourlyRatings = (hourlyData) => {
 
   const masterRatings = {};
   for (const activityName in activities) {
+    // Get parameter configuration for this activity
+    const activityParams = settings.activities?.[activityName] || null;
+    
     masterRatings[activityName] = hourlyData.map(hourData => ({
         time: hourData.time,
-        rating: activities[activityName](hourData)
+        rating: activities[activityName](hourData, activityParams)
     }));
   }
   return masterRatings;
