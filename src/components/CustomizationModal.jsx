@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Settings, RotateCcw, Save } from 'lucide-react';
-import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference } from '../lib/settings';
+import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference, setUnitPreference, getParameterUnits } from '../lib/settings';
 
 const CustomizationModal = ({ onClose, onSave }) => {
   const [settings, setSettings] = useState(null);
@@ -12,6 +12,48 @@ const CustomizationModal = ({ onClose, onSave }) => {
   const [newParamMax, setNewParamMax] = useState(10);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Get unit preference from settings or default to metric
+  const unitPreference = settings?.unitPreference || 'metric';
+  
+  // Handle changing unit preference
+  const handleUnitChange = (newUnit) => {
+    try {
+      const updatedSettings = { ...settings, unitPreference: newUnit };
+      setSettings(updatedSettings);
+      setUnitPreference(newUnit);
+    } catch (err) {
+      setError('Failed to change unit preference');
+      console.error(err);
+    }
+  };
+  
+  // Convert value for display based on unit preference
+  const convertForDisplay = (value, parameter) => {
+    if (!settings) return value;
+    const unitInfo = getParameterUnits(parameter, unitPreference);
+    return unitInfo.convert(parseFloat(value) || 0);
+  };
+  
+  // Convert value for storage (always store in metric)
+  const convertForStorage = (value, parameter) => {
+    if (!settings) return value;
+    // Always store in metric units
+    if (unitPreference === 'imperial') {
+      // Convert from imperial to metric for storage
+      if (parameter.includes('Temperature')) {
+        // F to C: (F - 32) * 5/9
+        return ((parseFloat(value) || 0) - 32) * 5/9;
+      } else if (parameter.includes('Speed') || parameter.includes('speed')) {
+        // mph to m/s: mph / 2.23694
+        return (parseFloat(value) || 0) / 2.23694;
+      } else if (parameter.includes('Height') || parameter.includes('height')) {
+        // ft to m: ft / 3.28084
+        return (parseFloat(value) || 0) / 3.28084;
+      }
+    }
+    return parseFloat(value) || 0;
+  };
 
   // Load settings on component mount
   useEffect(() => {
@@ -161,13 +203,37 @@ const CustomizationModal = ({ onClose, onSave }) => {
                 Activity Scoring Customization
               </h2>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              aria-label="Close"
-            >
-              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-md overflow-hidden border border-gray-300 dark:border-gray-600">
+                <button
+                  onClick={() => handleUnitChange('metric')}
+                  className={`px-3 py-1 text-sm font-medium transition-colors ${
+                    unitPreference === 'metric'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  °C
+                </button>
+                <button
+                  onClick={() => handleUnitChange('imperial')}
+                  className={`px-3 py-1 text-sm font-medium transition-colors ${
+                    unitPreference === 'imperial'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  °F
+                </button>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
           </div>
           <div className="flex justify-center items-center h-32">
             <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-500 dark:border-gray-700 dark:border-t-blue-400"></div>
@@ -304,26 +370,36 @@ const CustomizationModal = ({ onClose, onSave }) => {
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                               Optimal Value
                             </label>
-                            <input
-                              type="number"
-                              step="0.1"
-                              value={paramConfig.optimal || 0}
-                              onChange={(e) => handleParameterChange(paramName, 'optimal', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step="0.1"
+                                value={convertForDisplay(paramConfig.optimal || 0, paramName)}
+                                onChange={(e) => handleParameterChange(paramName, 'optimal', convertForStorage(e.target.value, paramName))}
+                                className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
+                                {getParameterUnits(paramName, unitPreference).unit}
+                              </div>
+                            </div>
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                               Range
                             </label>
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0.1"
-                              value={paramConfig.range || 1}
-                              onChange={(e) => handleParameterChange(paramName, 'range', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0.1"
+                                value={convertForDisplay(paramConfig.range || 1, paramName)}
+                                onChange={(e) => handleParameterChange(paramName, 'range', convertForStorage(e.target.value, paramName))}
+                                className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
+                                {getParameterUnits(paramName, unitPreference).unit}
+                              </div>
+                            </div>
                           </div>
                         </>
                       ) : (
@@ -331,14 +407,19 @@ const CustomizationModal = ({ onClose, onSave }) => {
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Maximum Value
                           </label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0.1"
-                            value={paramConfig.max || 10}
-                            onChange={(e) => handleParameterChange(paramName, 'max', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0.1"
+                              value={convertForDisplay(paramConfig.max || 10, paramName)}
+                              onChange={(e) => handleParameterChange(paramName, 'max', convertForStorage(e.target.value, paramName))}
+                              className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
+                              {getParameterUnits(paramName, unitPreference).unit}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -391,26 +472,36 @@ const CustomizationModal = ({ onClose, onSave }) => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Optimal Value
                   </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={newParamOptimal}
-                    onChange={(e) => setNewParamOptimal(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={convertForDisplay(newParamOptimal, newParameter || 'airTemperature')}
+                      onChange={(e) => setNewParamOptimal(convertForStorage(e.target.value, newParameter || 'airTemperature'))}
+                      className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
+                      {getParameterUnits(newParameter || 'airTemperature', unitPreference).unit}
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Range
                   </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={newParamRange}
-                    onChange={(e) => setNewParamRange(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      value={convertForDisplay(newParamRange, newParameter || 'airTemperature')}
+                      onChange={(e) => setNewParamRange(convertForStorage(e.target.value, newParameter || 'airTemperature'))}
+                      className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
+                      {getParameterUnits(newParameter || 'airTemperature', unitPreference).unit}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -418,14 +509,19 @@ const CustomizationModal = ({ onClose, onSave }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Maximum Value
                 </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  value={newParamMax}
-                  onChange={(e) => setNewParamMax(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={convertForDisplay(newParamMax, newParameter || 'windSpeed')}
+                    onChange={(e) => setNewParamMax(convertForStorage(e.target.value, newParameter || 'windSpeed'))}
+                    className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
+                    {getParameterUnits(newParameter || 'windSpeed', unitPreference).unit}
+                  </div>
+                </div>
               </div>
             )}
             

@@ -6,6 +6,7 @@ const SETTINGS_VERSION = 1;
 const DEFAULT_SETTINGS = {
   version: SETTINGS_VERSION,
   lastUpdated: new Date().toISOString(),
+  unitPreference: 'metric', // 'metric' or 'imperial'
   defaults: {
     'Surfing': {
       'swellHeight': {
@@ -352,4 +353,145 @@ export const validateSettings = (settings) => {
   }
   
   return errors;
+};
+
+/**
+ * Get the current unit preference
+ * @returns {string} 'metric' or 'imperial'
+ */
+export const getUnitPreference = () => {
+  const settings = loadSettings();
+  return settings.unitPreference || 'metric';
+};
+
+/**
+ * Set the unit preference
+ * @param {string} unit - 'metric' or 'imperial'
+ */
+export const setUnitPreference = (unit) => {
+  if (unit !== 'metric' && unit !== 'imperial') {
+    throw new Error('Unit preference must be "metric" or "imperial"');
+  }
+  
+  const settings = loadSettings();
+  settings.unitPreference = unit;
+  saveSettings(settings);
+};
+
+/**
+ * Convert temperature between Celsius and Fahrenheit
+ * @param {number} value - Temperature value
+ * @param {string} fromUnit - Source unit ('C' or 'F')
+ * @param {string} toUnit - Target unit ('C' or 'F')
+ * @returns {number} Converted temperature
+ */
+export const convertTemperature = (value, fromUnit, toUnit) => {
+  if (fromUnit === toUnit) return value;
+  
+  if (fromUnit === 'C' && toUnit === 'F') {
+    // Celsius to Fahrenheit
+    return (value * 9/5) + 32;
+  } else if (fromUnit === 'F' && toUnit === 'C') {
+    // Fahrenheit to Celsius
+    return (value - 32) * 5/9;
+  }
+  
+  return value;
+};
+
+/**
+ * Convert speed between m/s and mph
+ * @param {number} value - Speed value
+ * @param {string} fromUnit - Source unit ('m/s' or 'mph')
+ * @param {string} toUnit - Target unit ('m/s' or 'mph')
+ * @returns {number} Converted speed
+ */
+export const convertSpeed = (value, fromUnit, toUnit) => {
+  if (fromUnit === toUnit) return value;
+  
+  if (fromUnit === 'm/s' && toUnit === 'mph') {
+    // m/s to mph
+    return value * 2.23694;
+  } else if (fromUnit === 'mph' && toUnit === 'm/s') {
+    // mph to m/s
+    return value / 2.23694;
+  }
+  
+  return value;
+};
+
+/**
+ * Convert distance between meters and feet
+ * @param {number} value - Distance value
+ * @param {string} fromUnit - Source unit ('m' or 'ft')
+ * @param {string} toUnit - Target unit ('m' or 'ft')
+ * @returns {number} Converted distance
+ */
+export const convertDistance = (value, fromUnit, toUnit) => {
+  if (fromUnit === toUnit) return value;
+  
+  if (fromUnit === 'm' && toUnit === 'ft') {
+    // meters to feet
+    return value * 3.28084;
+  } else if (fromUnit === 'ft' && toUnit === 'm') {
+    // feet to meters
+    return value / 3.28084;
+  }
+  
+  return value;
+};
+
+/**
+ * Get display units for a parameter based on user preference
+ * @param {string} parameter - Parameter name
+ * @param {string} unitPreference - 'metric' or 'imperial'
+ * @returns {Object} Object with unit and conversion info
+ */
+export const getParameterUnits = (parameter, unitPreference) => {
+  const units = {
+    // Temperature parameters
+    'airTemperature': {
+      metric: { unit: '°C', convert: (v) => v },
+      imperial: { unit: '°F', convert: (v) => convertTemperature(v, 'C', 'F') }
+    },
+    'waterTemperature': {
+      metric: { unit: '°C', convert: (v) => v },
+      imperial: { unit: '°F', convert: (v) => convertTemperature(v, 'C', 'F') }
+    },
+    'dewPointTemperature': {
+      metric: { unit: '°C', convert: (v) => v },
+      imperial: { unit: '°F', convert: (v) => convertTemperature(v, 'C', 'F') }
+    },
+    
+    // Speed parameters
+    'windSpeed': {
+      metric: { unit: 'm/s', convert: (v) => v },
+      imperial: { unit: 'mph', convert: (v) => convertSpeed(v, 'm/s', 'mph') }
+    },
+    'gust': {
+      metric: { unit: 'm/s', convert: (v) => v },
+      imperial: { unit: 'mph', convert: (v) => convertSpeed(v, 'm/s', 'mph') }
+    },
+    'currentSpeed': {
+      metric: { unit: 'm/s', convert: (v) => v },
+      imperial: { unit: 'mph', convert: (v) => convertSpeed(v, 'm/s', 'mph') }
+    },
+    'waveHeight': {
+      metric: { unit: 'm', convert: (v) => v },
+      imperial: { unit: 'ft', convert: (v) => convertDistance(v, 'm', 'ft') }
+    },
+    'swellHeight': {
+      metric: { unit: 'm', convert: (v) => v },
+      imperial: { unit: 'ft', convert: (v) => convertDistance(v, 'm', 'ft') }
+    },
+    
+    // Default (no conversion needed)
+    'default': {
+      metric: { unit: '', convert: (v) => v },
+      imperial: { unit: '', convert: (v) => v }
+    }
+  };
+  
+  const paramUnits = units[parameter] || units['default'];
+  return paramUnits[unitPreference] || paramUnits['metric'];
 };

@@ -1,5 +1,5 @@
 // Test script for activity scoring customization
-import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference } from './settings';
+import { loadSettings, resetToDefaults, addUserPreference } from './settings';
 import { calculateAllHourlyRatings } from './weather';
 
 // Test data that mimics the structure of real weather data

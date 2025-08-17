@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchWeatherData, calculateAllHourlyRatings, getCacheTimestamp, clearCache } from "./lib/weather";
 import { getCurrentLocationOrDefault, saveLocation } from "./lib/location";
+import { getUnitPreference, setUnitPreference } from "./lib/settings";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
 import LocationInput from "./components/LocationInput";
 import CustomizationModal from "./components/CustomizationModal";
@@ -21,6 +22,7 @@ function App() {
   const [needsInitialLocation, setNeedsInitialLocation] = useState(false);
   const [apiQuota, setApiQuota] = useState(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [unitPreference, setUnitPreferenceState] = useState('metric');
 
   const loadWeatherData = async (location = null, forceRefresh = false) => {
     try {
@@ -117,6 +119,21 @@ function App() {
     setShowCustomizationModal(false);
   };
 
+  // Toggle unit preference between metric and imperial
+  const toggleUnitPreference = () => {
+    try {
+      const newPreference = unitPreference === 'metric' ? 'imperial' : 'metric';
+      setUnitPreferenceState(newPreference);
+      setUnitPreference(newPreference);
+      // Reload weather data to apply new unit preference
+      if (currentLocation) {
+        loadWeatherData(currentLocation);
+      }
+    } catch (err) {
+      console.warn('Failed to toggle unit preference:', err);
+    }
+  };
+
   // Initialize location and load weather data on app start
   useEffect(() => {
     const initializeApp = async () => {
@@ -142,6 +159,16 @@ function App() {
     };
 
     initializeApp();
+  }, []);
+
+  // Initialize unit preference
+  useEffect(() => {
+    try {
+      const preference = getUnitPreference();
+      setUnitPreferenceState(preference);
+    } catch (err) {
+      console.warn('Failed to load unit preference, using default:', err);
+    }
   }, []);
 
   const formatTimestamp = (timestamp) => {
@@ -175,22 +202,34 @@ function App() {
               </button>
             )}
           </div>
+
           
-          {/* Data freshness and refresh controls */}
-          <div className="flex items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-            {lastUpdated && (
-              <span>
-                Last updated: {formatTimestamp(lastUpdated)}
-              </span>
-            )}
+
+          {/* App Customization */}
+          <div className="flex items-center justify-center gap-4 mb-6 text-sm text-gray-500 dark:text-gray-400">
+            <button
+              onClick={toggleUnitPreference}
+              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Toggle unit preference"
+            >
+              {unitPreference === 'metric' ? '°C' : '°F'}
+            </button>
             <button
               onClick={handleShowCustomization}
               className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               title="Customize activity scoring"
             >
-              <Settings className="w-4 h-4" />
-              Customize
+              <Settings className="w-4 h-4" /> Customize
             </button>
+          </div>
+
+          {/* Data freshness and refresh controls */}          
+          <div className="flex items-center justify-center flex-col gap-2 text-sm text-gray-500 dark:text-gray-400">
+            {lastUpdated && (
+              <span>
+                Last updated: {formatTimestamp(lastUpdated)}
+              </span>
+            )}
             {quotaExceeded ? (
               <div className="flex items-center gap-1 px-3 py-1 rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
                 <span className="text-sm font-medium">Calls Exhausted</span>
@@ -217,6 +256,7 @@ function App() {
               </button>
             )}
           </div>
+
         </header>
 
         {loading && !needsInitialLocation && (
