@@ -44,7 +44,11 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
             const colorClasses = getColorClasses(rating);
             return (
               <div key={time} className="flex-1 group relative">
-                <div className={`h-10 w-full rounded transition-all duration-200 ${colorClasses}`}></div>
+                <div className={`h-20 w-full rounded transition-all duration-200 bg-gray-100`}></div>
+                <div
+                  className={`w-full rounded transition-all duration-200 absolute bottom-0 ${colorClasses}`}
+                  style={{ height: `${(rating.toFixed(1) / 10) * 100}%` }}
+                ></div>
                 <div className="absolute bottom-full mb-2 w-max left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   {formatTime(time)}: {rating.toFixed(1)}/10
                   <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">

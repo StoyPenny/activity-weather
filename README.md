@@ -6,7 +6,7 @@ This project is a React application that displays the best time of day for vario
 
 - **Dynamic Location Support**: Enter any city, address, or use your current location
 - **Live Weather Data**: Integrates with Stormglass API for real-time weather conditions
-- **Smart Caching**: Location-specific caching for 1 hour to reduce API calls and improve performance
+- **Smart Caching**: Location-specific caching that refreshes once per day at local midnight to reduce API calls and improve performance
 - **Geolocation Support**: Use browser's location API to automatically detect your position
 - **Geocoding Integration**: OpenStreetMap Nominatim API for converting addresses to coordinates
 - **Persistent Location**: Remembers your location preference in local storage
@@ -18,6 +18,8 @@ This project is a React application that displays the best time of day for vario
 
 ## Setup
 
+### Local Development
+
 1. Clone the repository
 2. Install dependencies: `npm install`
 3. Create a `.env` file with your Stormglass API key:
@@ -25,6 +27,62 @@ This project is a React application that displays the best time of day for vario
    VITE_STORMGLASS_API_KEY=your-api-key-here
    ```
 4. Start the development server: `npm run dev`
+
+### Docker Setup
+
+For easy deployment and running on different machines, this project includes Docker support.
+
+#### Prerequisites
+- Docker and Docker Compose installed on your system
+
+#### Quick Start with Docker
+
+1. Clone the repository
+2. Create a `.env` file with your Stormglass API key:
+   ```
+   VITE_STORMGLASS_API_KEY=your-api-key-here
+   ```
+3. Run the application:
+   ```bash
+   docker-compose up --build
+   ```
+4. Open your browser to `http://localhost:4173`
+
+#### Docker Commands
+
+**Production Build:**
+```bash
+# Build and run the production version
+docker-compose up --build
+
+# Run in detached mode
+docker-compose up -d
+
+# Stop the application
+docker-compose down
+```
+
+**Development Mode:**
+```bash
+# Run development version with hot reloading
+docker-compose --profile dev up --build
+
+# This will start the dev server on http://localhost:5173
+```
+
+**Individual Docker Commands:**
+```bash
+# Build the image manually
+docker build -t activity-weather .
+
+# Run the container manually
+docker run -p 4173:4173 --env-file .env activity-weather
+```
+
+#### Docker Services
+
+- **activity-weather**: Production build served on port 4173
+- **activity-weather-dev**: Development build with hot reloading on port 5173 (requires `--profile dev`)
 
 ## Technology Stack
 
@@ -47,7 +105,7 @@ This project is a React application that displays the best time of day for vario
 - **Geocoding**: Converts addresses to coordinates using OpenStreetMap Nominatim
 - **Validation**: Ensures valid coordinates before fetching weather data
 - **Error Handling**: Graceful fallbacks for geocoding failures or denied location access
-- **Cache Management**: Location-specific weather data caching
+- **Cache Management**: Location-specific weather data caching that refreshes daily at local midnight
 
 ## Weather Parameters
 

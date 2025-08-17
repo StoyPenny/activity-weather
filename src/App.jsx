@@ -16,6 +16,7 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [showLocationInput, setShowLocationInput] = useState(false);
+  const [needsInitialLocation, setNeedsInitialLocation] = useState(false);
   const [apiQuota, setApiQuota] = useState(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
 
@@ -74,6 +75,11 @@ function App() {
       saveLocation(newLocation);
       setCurrentLocation(newLocation);
       
+      // If this was initial setup, clear the flag
+      if (needsInitialLocation) {
+        setNeedsInitialLocation(false);
+      }
+      
       // Load weather data for the new location
       await loadWeatherData(newLocation, true); // Force refresh for new location
     } catch (err) {
@@ -87,19 +93,29 @@ function App() {
   };
 
   const handleCloseLocationInput = () => {
-    setShowLocationInput(false);
+    // Don't allow closing if we need initial location
+    if (!needsInitialLocation) {
+      setShowLocationInput(false);
+    }
   };
 
   // Initialize location and load weather data on app start
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Get current location (from storage or default)
+        // Get current location from storage (no default fallback)
         const location = getCurrentLocationOrDefault();
-        setCurrentLocation(location);
         
-        // Load weather data for the location
-        await loadWeatherData(location);
+        if (location) {
+          // We have a stored location, proceed normally
+          setCurrentLocation(location);
+          await loadWeatherData(location);
+        } else {
+          // No stored location, show location selection
+          setNeedsInitialLocation(true);
+          setShowLocationInput(true);
+          setLoading(false);
+        }
       } catch (err) {
         setError("Failed to initialize app.");
         console.error(err);
@@ -131,13 +147,15 @@ function App() {
           </h1>
           <div className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-4">
             <p className="mb-2">Full-day activity ratings for</p>
-            <button
-              onClick={handleShowLocationInput}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium"
-            >
-              <MapPin className="w-4 h-4" />
-              {currentLocation ? currentLocation.name : 'Loading location...'}
-            </button>
+            {currentLocation && (
+              <button
+                onClick={handleShowLocationInput}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium"
+              >
+                <MapPin className="w-4 h-4" />
+                {currentLocation.name}
+              </button>
+            )}
           </div>
           
           {/* Data freshness and refresh controls */}
@@ -175,10 +193,20 @@ function App() {
           </div>
         </header>
 
-        {loading && (
+        {loading && !needsInitialLocation && (
           <div className="flex flex-col justify-center items-center h-64">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-blue-500 dark:border-gray-700 dark:border-t-blue-400"></div>
             <p className="mt-6 text-xl text-gray-600 dark:text-gray-400">Calculating Daily Ratings...</p>
+          </div>
+        )}
+
+        {/* Initial Location Setup Message */}
+        {needsInitialLocation && !loading && (
+          <div className="flex flex-col justify-center items-center h-64">
+            <MapPin className="w-16 h-16 text-blue-500 mb-4" />
+            <p className="text-xl text-gray-600 dark:text-gray-400 text-center">
+              Welcome! Please set your location to get started.
+            </p>
           </div>
         )}
         
@@ -207,11 +235,12 @@ function App() {
         )}
 
         {/* Location Input Modal */}
-        {showLocationInput && currentLocation && (
+        {showLocationInput && (
           <LocationInput
             currentLocation={currentLocation}
             onLocationChange={handleLocationChange}
             onClose={handleCloseLocationInput}
+            isInitialSetup={needsInitialLocation}
           />
         )}
       </main>

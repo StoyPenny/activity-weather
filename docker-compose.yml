@@ -1,0 +1,30 @@
+services:
+  activity-weather:
+    build: .
+    ports:
+      - "4173:4173"
+    environment:
+      - VITE_STORMGLASS_API_KEY=${VITE_STORMGLASS_API_KEY}
+    env_file:
+      - .env
+    restart: unless-stopped
+    container_name: activity-weather-app
+
+  # Development service (optional)
+  activity-weather-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - VITE_STORMGLASS_API_KEY=${VITE_STORMGLASS_API_KEY}
+    env_file:
+      - .env
+    restart: unless-stopped
+    container_name: activity-weather-dev
+    profiles:
+      - dev

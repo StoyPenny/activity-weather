@@ -1,11 +1,6 @@
 // --- LOCATION MANAGEMENT UTILITIES ---
 
-// Default location (Port Orange, FL)
-const DEFAULT_LOCATION = {
-  name: 'Port Orange, FL',
-  lat: 29.1386,
-  lng: -81.0067
-};
+// No default location - users must select their location
 
 // Local storage key for user's location
 const LOCATION_STORAGE_KEY = 'user_location';
@@ -250,12 +245,11 @@ export const loadLocation = () => {
 };
 
 /**
- * Get current location with fallback to default
- * @returns {Object} Location object
+ * Get current location from storage
+ * @returns {Object|null} Location object or null if not found
  */
 export const getCurrentLocationOrDefault = () => {
-  const stored = loadLocation();
-  return stored || DEFAULT_LOCATION;
+  return loadLocation();
 };
 
 /**
@@ -303,6 +297,3 @@ export const generateLocationCacheKey = (lat, lng) => {
   const roundedLng = Math.round(lng * 1000) / 1000;
   return `weather_${roundedLat}_${roundedLng}`;
 };
-
-// Export default location for reference
-export { DEFAULT_LOCATION };

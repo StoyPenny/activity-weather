@@ -21,7 +21,14 @@ const WEATHER_PARAMS = [
 ];
 
 // --- CACHING CONFIGURATION ---
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+// Cache refreshes once per calendar day at local midnight
+
+// Helper function to check if two dates are the same calendar day (local timezone)
+const isSameCalendarDay = (date1, date2) => {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+};
 
 // --- MOCK DATA SERVICE (FALLBACK) ---
 // This now includes data for multiple hours to simulate a daily forecast.
@@ -108,6 +115,7 @@ const fetchStormglassData = async (lat, lng) => {
 };
 
 // --- CACHE MANAGEMENT FUNCTIONS ---
+// Cache refreshes once per calendar day at local midnight
 const generateCacheKey = (lat, lng) => {
   // Round to 3 decimal places for cache key (roughly 100m precision)
   const roundedLat = Math.round(lat * 1000) / 1000;
@@ -122,14 +130,16 @@ const getCachedData = (lat, lng) => {
     if (!cached) return null;
     
     const { data, timestamp } = JSON.parse(cached);
-    const now = Date.now();
+    const cacheDate = new Date(timestamp);
+    const currentDate = new Date();
     
-    // Check if cache is still valid (within 1 hour)
-    if (now - timestamp < CACHE_DURATION) {
-      console.log(`Using cached weather data for ${lat}, ${lng}`);
+    // Check if cache is from the same calendar day (local timezone)
+    // Cache expires at midnight and refreshes for the new day
+    if (isSameCalendarDay(cacheDate, currentDate)) {
+      console.log(`Using cached weather data for ${lat}, ${lng} (cached on ${cacheDate.toLocaleDateString()})`);
       return { data, timestamp };
     } else {
-      console.log('Cache expired, will fetch fresh data');
+      console.log(`Cache expired (cached on ${cacheDate.toLocaleDateString()}, now ${currentDate.toLocaleDateString()}), will fetch fresh data`);
       localStorage.removeItem(cacheKey);
       return null;
     }
@@ -144,13 +154,15 @@ const getCachedData = (lat, lng) => {
 const setCachedData = (data, lat, lng) => {
   try {
     const cacheKey = generateCacheKey(lat, lng);
+    const now = new Date();
     const cacheObject = {
       data,
-      timestamp: Date.now(),
+      timestamp: now.getTime(), // Store timestamp for date comparison
+      cacheDate: now.toLocaleDateString(), // Human-readable cache date for debugging
       location: { lat, lng }
     };
     localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
-    console.log(`Weather data cached successfully for ${lat}, ${lng}`);
+    console.log(`Weather data cached successfully for ${lat}, ${lng} on ${now.toLocaleDateString()}`);
   } catch (error) {
     console.warn('Error caching data:', error);
   }
