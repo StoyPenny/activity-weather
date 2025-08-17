@@ -284,12 +284,12 @@ function App() {
 
         {/* Weather Summary */}
         {hourlyData && !loading && (
-          <WeatherSummary hourlyData={hourlyData} />
+          <WeatherSummary hourlyData={hourlyData} unitPreference={unitPreference} />
         )}
 
         {/* Weather Chart */}
         {hourlyData && !loading && (
-          <WeatherChart hourlyData={hourlyData} />
+          <WeatherChart hourlyData={hourlyData} unitPreference={unitPreference} />
         )}
 
         {ratings && (
@@ -315,6 +315,7 @@ function App() {
           <CustomizationModal
             onClose={handleCloseCustomization}
             onSave={handleSaveCustomization}
+            unitPreference={unitPreference}
           />
         )}
       </main>

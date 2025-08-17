@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Settings, RotateCcw, Save } from 'lucide-react';
-import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference, setUnitPreference, getParameterUnits } from '../lib/settings';
+import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference, getParameterUnits } from '../lib/settings';
 
-const CustomizationModal = ({ onClose, onSave }) => {
+const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
   const [settings, setSettings] = useState(null);
   const [selectedActivity, setSelectedActivity] = useState('Beach Day');
   const [newParameter, setNewParameter] = useState('');
@@ -13,46 +13,41 @@ const CustomizationModal = ({ onClose, onSave }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   
-  // Get unit preference from settings or default to metric
-  const unitPreference = settings?.unitPreference || 'metric';
-  
-  // Handle changing unit preference
-  const handleUnitChange = (newUnit) => {
-    try {
-      const updatedSettings = { ...settings, unitPreference: newUnit };
-      setSettings(updatedSettings);
-      setUnitPreference(newUnit);
-    } catch (err) {
-      setError('Failed to change unit preference');
-      console.error(err);
-    }
-  };
   
   // Convert value for display based on unit preference
   const convertForDisplay = (value, parameter) => {
-    if (!settings) return value;
     const unitInfo = getParameterUnits(parameter, unitPreference);
-    return unitInfo.convert(parseFloat(value) || 0);
+    const convertedValue = unitInfo.convert(parseFloat(value) || 0);
+    // round to 1 decimal place
+    return Math.round(convertedValue * 10) / 10;
   };
   
   // Convert value for storage (always store in metric)
   const convertForStorage = (value, parameter) => {
-    if (!settings) return value;
-    // Always store in metric units
     if (unitPreference === 'imperial') {
-      // Convert from imperial to metric for storage
-      if (parameter.includes('Temperature')) {
-        // F to C: (F - 32) * 5/9
-        return ((parseFloat(value) || 0) - 32) * 5/9;
-      } else if (parameter.includes('Speed') || parameter.includes('speed')) {
-        // mph to m/s: mph / 2.23694
-        return (parseFloat(value) || 0) / 2.23694;
-      } else if (parameter.includes('Height') || parameter.includes('height')) {
-        // ft to m: ft / 3.28084
-        return (parseFloat(value) || 0) / 3.28084;
+      const unitInfo = getParameterUnits(parameter, 'metric');
+      const imperialUnitInfo = getParameterUnits(parameter, 'imperial');
+      
+      if (unitInfo.unit === '°C' && imperialUnitInfo.unit === '°F') {
+        return (parseFloat(value) - 32) * 5/9;
+      }
+      if (unitInfo.unit === 'm/s' && imperialUnitInfo.unit === 'mph') {
+        return parseFloat(value) / 2.23694;
+      }
+      if (unitInfo.unit === 'm' && imperialUnitInfo.unit === 'ft') {
+        return parseFloat(value) / 3.28084;
+      }
+      if (unitInfo.unit === 'km' && imperialUnitInfo.unit === 'mi') {
+        return parseFloat(value) / 0.621371;
+      }
+      if (unitInfo.unit === 'mm' && imperialUnitInfo.unit === 'in') {
+        return parseFloat(value) / 0.0393701;
+      }
+      if (unitInfo.unit === 'hPa' && imperialUnitInfo.unit === 'inHg') {
+          return parseFloat(value) * 33.863886666667;
       }
     }
-    return parseFloat(value) || 0;
+    return parseFloat(value);
   };
 
   // Load settings on component mount
@@ -205,26 +200,6 @@ const CustomizationModal = ({ onClose, onSave }) => {
             </div>
             <div className="flex items-center gap-2">
               <div className="flex rounded-md overflow-hidden border border-gray-300 dark:border-gray-600">
-                <button
-                  onClick={() => handleUnitChange('metric')}
-                  className={`px-3 py-1 text-sm font-medium transition-colors ${
-                    unitPreference === 'metric'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  °C
-                </button>
-                <button
-                  onClick={() => handleUnitChange('imperial')}
-                  className={`px-3 py-1 text-sm font-medium transition-colors ${
-                    unitPreference === 'imperial'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  °F
-                </button>
               </div>
               <button
                 onClick={onClose}

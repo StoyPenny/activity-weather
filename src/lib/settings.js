@@ -462,6 +462,18 @@ export const getParameterUnits = (parameter, unitPreference) => {
       metric: { unit: '°C', convert: (v) => v },
       imperial: { unit: '°F', convert: (v) => convertTemperature(v, 'C', 'F') }
     },
+    'pressure': {
+      metric: { unit: 'hPa', convert: (v) => v },
+      imperial: { unit: 'inHg', convert: (v) => v / 33.863886666667 }
+    },
+    'visibility': {
+        metric: { unit: 'km', convert: (v) => v },
+        imperial: { unit: 'mi', convert: (v) => v * 0.621371 }
+    },
+    'precipitation': {
+        metric: { unit: 'mm', convert: (v) => v },
+        imperial: { unit: 'in', convert: (v) => v * 0.0393701 }
+    },
     
     // Speed parameters
     'windSpeed': {

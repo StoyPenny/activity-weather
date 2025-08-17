@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   ComposedChart, 
   Line, 
@@ -11,149 +11,137 @@ import {
 } from 'recharts';
 import { Card } from './ui/card';
 import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain } from 'lucide-react';
+import { getParameterUnits } from '../lib/settings';
 
-const WeatherChart = ({ hourlyData }) => {
-  // Default visibility - all except visibility
+const WeatherChart = ({ hourlyData, unitPreference }) => {
   const [visibleMetrics, setVisibleMetrics] = useState({
     temperature: true,
     humidity: true,
     precipitation: true,
     windSpeed: true,
     pressure: true,
-    visibility: false
+    visibility: false,
   });
+
+  const getUnit = useMemo(() => {
+    return (param) => getParameterUnits(param, unitPreference);
+  }, [unitPreference]);
+
+  const metrics = useMemo(
+    () => [
+      {
+        key: 'temperature',
+        label: `Temperature (${getUnit('airTemperature').unit})`,
+        icon: Thermometer,
+        color: '#ef4444',
+        yAxisId: 'integers',
+      },
+      {
+        key: 'humidity',
+        label: 'Humidity (%)',
+        icon: Droplets,
+        color: '#3b82f6',
+        yAxisId: 'percentages',
+      },
+      {
+        key: 'precipitation',
+        label: `Precipitation (${getUnit('precipitation').unit})`,
+        icon: CloudRain,
+        color: '#06b6d4',
+        yAxisId: 'integers',
+      },
+      {
+        key: 'windSpeed',
+        label: `Wind Speed (${getUnit('windSpeed').unit})`,
+        icon: Wind,
+        color: '#10b981',
+        yAxisId: 'integers',
+      },
+      {
+        key: 'pressure',
+        label: `Pressure (${getUnit('pressure').unit})`,
+        icon: Gauge,
+        color: '#f59e0b',
+        yAxisId: 'integers',
+      },
+      {
+        key: 'visibility',
+        label: `Visibility (${getUnit('visibility').unit})`,
+        icon: Eye,
+        color: '#8b5cf6',
+        yAxisId: 'integers',
+      },
+    ],
+    [getUnit]
+  );
+  
+  const chartData = useMemo(() => {
+    if (!hourlyData) return [];
+    return hourlyData.map((hour) => {
+      const time = new Date(hour.time);
+      const timeLabel = time.toLocaleTimeString([], {
+        hour: 'numeric',
+        hour12: true,
+      });
+
+      const tempUnit = getUnit('airTemperature');
+      const temperature = Math.round(
+        tempUnit.convert(hour.airTemperature?.sg || 0)
+      );
+
+      const humidity = Math.round(hour.humidity?.sg || 0);
+
+      const precipUnit = getUnit('precipitation');
+      const precipitation = Math.round(
+        precipUnit.convert(hour.precipitation?.sg || 0)
+      );
+
+      const windUnit = getUnit('windSpeed');
+      const windSpeed = Math.round(windUnit.convert(hour.windSpeed?.sg || 0));
+
+      const pressureUnit = getUnit('pressure');
+      const pressure = parseFloat(
+        pressureUnit.convert(hour.pressure?.sg || 1013).toFixed(2)
+      );
+
+      const visibilityUnit = getUnit('visibility');
+      const visibility = Math.round(
+        visibilityUnit.convert(hour.visibility?.sg || 10)
+      );
+
+      return {
+        time: timeLabel,
+        temperature,
+        humidity,
+        precipitation,
+        windSpeed,
+        pressure,
+        visibility,
+      };
+    });
+  }, [hourlyData, getUnit]);
+
+  const toggleMetric = (metric) => {
+    setVisibleMetrics((prev) => ({
+      ...prev,
+      [metric]: !prev[metric],
+    }));
+  };
 
   if (!hourlyData || hourlyData.length === 0) {
     return null;
   }
-
-  // Process hourly data and convert to Imperial units
-  const chartData = hourlyData.map(hour => {
-    const time = new Date(hour.time);
-    const timeLabel = time.toLocaleTimeString([], { hour: 'numeric', hour12: true });
-    
-    // Convert to Imperial units
-    const tempC = hour.airTemperature?.sg || 0;
-    const temperature = Math.round((tempC * 9/5) + 32); // °F
-    
-    const humidity = Math.round(hour.humidity?.sg || 0); // %
-    
-    const precipitationMm = hour.precipitation?.sg || 0;
-    const cloudCover = hour.cloudCover?.sg || 0;
-    const precipitation = Math.round(((precipitationMm > 0.5) ? Math.min(90, 60 + cloudCover * 0.3) : 
-                                    (precipitationMm > 0.1) ? Math.min(70, 30 + cloudCover * 0.4) : 
-                                    (cloudCover > 70) ? Math.min(40, cloudCover * 0.4) : 
-                                    (cloudCover > 40) ? Math.min(20, cloudCover * 0.2) : 
-                                    Math.max(0, cloudCover * 0.1))); // %
-    
-    const windSpeedMs = hour.windSpeed?.sg || 0;
-    const windSpeed = Math.round(windSpeedMs * 2.237); // mph
-    
-    const pressureHpa = hour.pressure?.sg || 1013;
-    const pressure = Math.round(pressureHpa * 0.02953 * 100) / 100; // inHg
-    
-    const visibilityKm = hour.visibility?.sg || 10;
-    const visibility = Math.round(visibilityKm * 0.621371); // miles
-
-    return {
-      time: timeLabel,
-      temperature,
-      humidity,
-      precipitation,
-      windSpeed,
-      pressure, // Keep actual pressure values without scaling
-      visibility
-    };
-  });
-
-  const toggleMetric = (metric) => {
-    setVisibleMetrics(prev => ({
-      ...prev,
-      [metric]: !prev[metric]
-    }));
-  };
-
-  // Define metrics with their properties
-  const metrics = [
-    {
-      key: 'temperature',
-      label: 'Temperature (°F)',
-      icon: Thermometer,
-      color: '#ef4444',
-      yAxisId: 'integers',
-      type: 'integer'
-    },
-    {
-      key: 'humidity',
-      label: 'Humidity (%)',
-      icon: Droplets,
-      color: '#3b82f6',
-      yAxisId: 'percentages',
-      type: 'percentage'
-    },
-    {
-      key: 'precipitation',
-      label: 'Precipitation Chance (%)',
-      icon: CloudRain,
-      color: '#06b6d4',
-      yAxisId: 'percentages',
-      type: 'percentage'
-    },
-    {
-      key: 'windSpeed',
-      label: 'Wind Speed (mph)',
-      icon: Wind,
-      color: '#10b981',
-      yAxisId: 'integers',
-      type: 'integer'
-    },
-    {
-      key: 'pressure',
-      label: 'Pressure (inHg)',
-      icon: Gauge,
-      color: '#f59e0b',
-      yAxisId: 'integers',
-      type: 'integer'
-    },
-    {
-      key: 'visibility',
-      label: 'Visibility (mi)',
-      icon: Eye,
-      color: '#8b5cf6',
-      yAxisId: 'integers',
-      type: 'integer'
-    }
-  ];
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="font-medium text-gray-900 dark:text-white mb-2">{label}</p>
-          {payload.map((entry, index) => {
-            let value = entry.value;
-            let unit = '';
-            
-            // Handle special formatting
-            if (entry.dataKey === 'temperature') {
-              unit = '°F';
-            } else if (entry.dataKey === 'humidity' || entry.dataKey === 'precipitation') {
-              unit = '%';
-            } else if (entry.dataKey === 'windSpeed') {
-              unit = ' mph';
-            } else if (entry.dataKey === 'pressure') {
-              value = value.toFixed(2); // Show pressure with 2 decimal places
-              unit = ' inHg';
-            } else if (entry.dataKey === 'visibility') {
-              unit = ' mi';
-            }
-            
-            return (
-              <p key={index} style={{ color: entry.color }} className="text-sm">
-                {entry.name}: {value}{unit}
-              </p>
-            );
-          })}
+          {payload.map((entry, index) => (
+            <p key={index} style={{ color: entry.color }} className="text-sm capitalize">
+              {entry.name}: {entry.value}
+            </p>
+          ))}
         </div>
       );
     }
