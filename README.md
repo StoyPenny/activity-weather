@@ -30,6 +30,7 @@ This project is a React application that displays the best time of day for vario
 - **Smart Caching**: Location-specific caching that refreshes once per day at local midnight to reduce API calls and improve performance
 - **Geolocation Support**: Use browser's location API to automatically detect your position
 - **Geocoding Integration**: OpenStreetMap Nominatim API for converting addresses to coordinates
+- **Unit Conversion**: Toggle between Metric and Imperial units for all weather data
 - **Persistent Location**: Remembers your location preference in local storage
 - **Data Freshness**: Shows timestamp of last update with manual refresh option
 - **8 Activity Types**: Surfing, Fishing, Boating, Hiking, Camping, Beach Day, Kayaking, and Snorkeling
@@ -146,7 +147,8 @@ The app uses the following weather data for activity calculations:
 3. **Enter Location**: Type a city name, address, or click "Use Current Location"
 4. **View Results**: Weather data and activity ratings display for your chosen location
 5. **Change Location**: Click the location button in the header to update your location
-6. **Automatic Saving**: Your location preference is saved for future visits
+6. **Toggle Units**: Switch between Metric (°C, m/s, km) and Imperial (°F, mph, mi) systems using the unit toggle button in the header
+7. **Automatic Saving**: Your location preference is saved for future visits
 
 ## API Usage
 
