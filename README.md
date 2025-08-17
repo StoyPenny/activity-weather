@@ -21,6 +21,12 @@ This project is a React application that displays the best time of day for vario
 
 ## Setup
 
+### Stormglass API Key
+- [Register](https://dashboard.stormglass.io/register) or [Sign In](https://dashboard.stormglass.io/login)
+- Copy your API key from the dashboard
+   - The free key will give you up to 10 calls per day. Paid options available for more if needed.
+- [Documentation]([https://dashboard.stormglass.io/login](https://docs.stormglass.io/#/weather))
+
 ### Local Development
 
 1. Clone the repository
