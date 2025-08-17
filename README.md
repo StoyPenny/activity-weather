@@ -2,6 +2,8 @@
 
 This project is a React application that displays the best time of day for various activities based on live weather conditions for any location worldwide. It uses the Stormglass API to fetch real-time marine and weather data, providing accurate hourly activity ratings.
 
+<img width="1800" height="2586" alt="localhost_5175_" src="https://github.com/user-attachments/assets/d5ce9cd6-ed46-43da-8184-3ad7a6e3fc9e" />
+
 ## Features
 
 - **Dynamic Location Support**: Enter any city, address, or use your current location
