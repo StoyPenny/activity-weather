@@ -12,7 +12,8 @@ This project is a React application that displays the best time of day for vario
 - **Persistent Location**: Remembers your location preference in local storage
 - **Data Freshness**: Shows timestamp of last update with manual refresh option
 - **8 Activity Types**: Surfing, Fishing, Boating, Hiking, Camping, Beach Day, Kayaking, and Snorkeling
-- **Hourly Ratings**: Color-coded timeline showing optimal times for each activity
+- **5-Level Rating System**: Detailed activity ratings from Poor to Excellent with color-coded timeline
+- **Hourly Ratings**: Color-coded timeline showing optimal times for each activity with nuanced feedback
 - **Responsive Design**: Built with Tailwind CSS and shadcn/ui components
 - **Fallback System**: Gracefully falls back to mock data if API is unavailable
 

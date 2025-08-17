@@ -11,12 +11,17 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
   }
 
   const getColorClasses = (rating) => {
-    if (rating > 7.5) {
-      return 'bg-green-500 hover:bg-green-400';
-    } else if (rating > 4) {
-      return 'bg-yellow-500 hover:bg-yellow-400';
+    // 5-level rating system: Poor, Fair, Good, Very Good, Excellent
+    if (rating >= 8) {
+      return 'bg-blue-500 hover:bg-blue-400'; // Excellent (8-10)
+    } else if (rating >= 6) {
+      return 'bg-green-500 hover:bg-green-400'; // Very Good (6-8)
+    } else if (rating >= 4) {
+      return 'bg-yellow-500 hover:bg-yellow-400'; // Good (4-6)
+    } else if (rating >= 2) {
+      return 'bg-orange-500 hover:bg-orange-400'; // Fair (2-4)
     } else {
-      return 'bg-red-500 hover:bg-red-400';
+      return 'bg-red-500 hover:bg-red-400'; // Poor (0-2)
     }
   };
 
