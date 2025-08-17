@@ -4,6 +4,23 @@ This project is a React application that displays the best time of day for vario
 
 <img width="1800" height="2586" alt="localhost_5175_" src="https://github.com/user-attachments/assets/d5ce9cd6-ed46-43da-8184-3ad7a6e3fc9e" />
 
+##### Table of Contents
+
+- [Features](#features)
+- [Setup](#setup)
+   - [Local Development](#local-development)
+   - [Docker Setup](#docker-setup)
+- [Technology Stack](#technology-stack)
+- [Location Features](#location-features)
+   - [Location Input Options](#location-input-options)
+   - [Location Management](#location-management)
+- [Weather Parameters](#weather-parameters)
+- [Usage](#usage)
+- [API Usage](#api-usage)
+   - [Stormglass API](#stormglass-api)
+   - [OpenStreetMap Nominatim](#openstreetmap-nominatim)
+
+
 ## Features
 
 - **Dynamic Location Support**: Enter any city, address, or use your current location
