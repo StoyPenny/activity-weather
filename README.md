@@ -24,6 +24,7 @@ This project is a React application that displays the best time of day for vario
 - [API Usage](#api-usage)
    - [Stormglass API](#stormglass-api)
    - [OpenStreetMap Nominatim](#openstreetmap-nominatim)
+- [Future Updates](#future-updates)
 
 
 ## Features
@@ -189,3 +190,15 @@ The app uses the following weather data for activity calculations:
 - Free geocoding service, no API key required
 - Converts location names to latitude/longitude coordinates
 - Includes reverse geocoding for current location detection
+
+
+## Future Updates
+
+- Ability to add and remove activities. 
+- Allow users to add weights to each of their rating parameters, or add an easy way to adjust that for the user to avoid them having to do complicated math to ensure that everything always adds up. 
+- Ability to set and view multiple locations, likely through some kind of tabbed UI so that the user can get full screen views of the details while still being able to switch locations easily. This would prevent cache overwriting when switching from Location A to Location B, and then Back to Location A. It also gives the user flexibility so that they can keep track of different locations that offer better environments for different activities. 
+- Show the weather parameters that rank high for the day, and those that are ranking low. This will let users know what parameters are most strongly impacting the weather score and they can make assumptions or change their plans based on that information. Like maybe the beach day is not going to be that great today but then you find out that its mostly just the temperature parameter that is bringing the score down for the day, so you can dress differently and still go to the beach. If it were super windy you might not want to go even if it is nice out otherwise. 
+- Each location should have its own set of customization settings to allow for major differences in climate and activities from location to location (Miami Beach would have different requirements than Denver Colorado).
+- Ability to see more details about the different metrics used in the rating score when you hover over each hourly ticker in an activity card
+- Update the customization screen for entering in the API parameter names to upgrade it with a searchable drop down select menu that is prepopulated with all of the items from the [[Stormglass Weather API]]
+-Add ability to have seasonal customizations. 
