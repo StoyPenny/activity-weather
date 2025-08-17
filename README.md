@@ -21,12 +21,6 @@ This project is a React application that displays the best time of day for vario
 
 ## Setup
 
-### Stormglass API Key
-- [Register](https://dashboard.stormglass.io/register) or [Sign In](https://dashboard.stormglass.io/login)
-- Copy your API key from the dashboard
-   - The free key will give you up to 10 calls per day. Paid options available for more if needed.
-- [Documentation]([https://dashboard.stormglass.io/login](https://docs.stormglass.io/#/weather))
-
 ### Local Development
 
 1. Clone the repository
@@ -100,7 +94,6 @@ docker run -p 4173:4173 --env-file .env activity-weather
 - **Geocoding API**: OpenStreetMap Nominatim (free, no API key required)
 - **Geolocation**: Browser's native Geolocation API
 - **Storage**: Local Storage for location persistence
-- **Default Location**: Port Orange, Florida (29.1386, -81.0067)
 
 ## Location Features
 
@@ -108,10 +101,11 @@ docker run -p 4173:4173 --env-file .env activity-weather
 - **Manual Entry**: Type city names, addresses, or coordinates
 - **Current Location**: Use browser geolocation to auto-detect your position
 - **Persistent Storage**: Your location preference is saved and remembered
-- **Default Fallback**: Defaults to Port Orange, FL if no location is set
+- **User-Driven Setup**: No default location - users must select their location on first visit
 
 ### Location Management
 - **Geocoding**: Converts addresses to coordinates using OpenStreetMap Nominatim
+- **Smart Formatting**: Displays US locations with abbreviated states (e.g., "Miami, FL")
 - **Validation**: Ensures valid coordinates before fetching weather data
 - **Error Handling**: Graceful fallbacks for geocoding failures or denied location access
 - **Cache Management**: Location-specific weather data caching that refreshes daily at local midnight
@@ -128,11 +122,12 @@ The app uses the following weather data for activity calculations:
 
 ## Usage
 
-1. **First Visit**: App loads with Port Orange, FL as the default location
-2. **Change Location**: Click the location button in the header to open location input
+1. **First Visit**: App prompts you to set your location with a welcome modal
+2. **Location Setup**: Choose to use your current location or enter a city/address manually
 3. **Enter Location**: Type a city name, address, or click "Use Current Location"
-4. **View Results**: Weather data and activity ratings update for your chosen location
-5. **Automatic Saving**: Your location preference is saved for future visits
+4. **View Results**: Weather data and activity ratings display for your chosen location
+5. **Change Location**: Click the location button in the header to update your location
+6. **Automatic Saving**: Your location preference is saved for future visits
 
 ## API Usage
 
@@ -140,6 +135,10 @@ The app uses the following weather data for activity calculations:
 - Requires API key in `.env` file as `VITE_STORMGLASS_API_KEY`
 - Fetches hourly weather data for any global coordinates
 - Includes marine data (waves, swells) and meteorological data
+- [Register](https://dashboard.stormglass.io/register) or [Sign In](https://dashboard.stormglass.io/login)
+- Copy your API key from the dashboard
+   - The free key will give you up to 10 calls per day. Paid options available for more if needed.
+- [Documentation]([https://dashboard.stormglass.io/login](https://docs.stormglass.io/#/weather))
 
 ### OpenStreetMap Nominatim
 - Free geocoding service, no API key required
