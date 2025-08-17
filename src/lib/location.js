@@ -66,6 +66,21 @@ export const geocodeLocation = async (locationString) => {
   }
 };
 
+// US State abbreviations mapping
+const US_STATE_ABBREVIATIONS = {
+  'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+  'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+  'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+  'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+  'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+  'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+  'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+  'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+  'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+  'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+  'District of Columbia': 'DC', 'Puerto Rico': 'PR'
+};
+
 /**
  * Format location name from Nominatim result
  * @param {Object} result - Nominatim API result
@@ -81,9 +96,15 @@ const formatLocationName = (result) => {
   else if (address.village) parts.push(address.village);
   else if (address.municipality) parts.push(address.municipality);
 
-  // Add state/province
-  if (address.state) parts.push(address.state);
-  else if (address.province) parts.push(address.province);
+  // Add state/province with abbreviation for US states
+  let stateName = address.state || address.province;
+  if (stateName) {
+    // For US locations, use abbreviation if available
+    if (address.country === 'United States' && US_STATE_ABBREVIATIONS[stateName]) {
+      stateName = US_STATE_ABBREVIATIONS[stateName];
+    }
+    parts.push(stateName);
+  }
 
   // Add country if not US
   if (address.country && address.country !== 'United States') {
