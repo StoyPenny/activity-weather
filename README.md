@@ -2,7 +2,9 @@
 
 This project is a React application that displays the best time of day for various activities based on live weather conditions for any location worldwide. It uses the Stormglass API to fetch real-time marine and weather data, providing accurate hourly activity ratings.
 
-<img width="1800" height="2586" alt="localhost_5175_" src="https://github.com/user-attachments/assets/d5ce9cd6-ed46-43da-8184-3ad7a6e3fc9e" />
+<img width="1553" height="2656" alt="localhost_5175_ (1)" src="https://github.com/user-attachments/assets/79ba76ea-c98b-4fa7-b8fe-e659820f579e" />
+<img width="1550" height="1129" alt="localhost_5175_ (2)" src="https://github.com/user-attachments/assets/8acb7f02-f8b9-4b42-9f5b-a6a2a40a8cdc" />
+
 
 ##### Table of Contents
 
