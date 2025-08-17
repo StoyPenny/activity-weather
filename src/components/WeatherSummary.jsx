@@ -4,10 +4,11 @@ import {
   getCurrentWeatherData, 
   calculateFeelsLike, 
   getWindDirection, 
-  getPrecipitationChance 
+  getPrecipitationChance,
 } from '../lib/weather';
+import { getParameterUnits } from '../lib/settings';
 
-const WeatherSummary = ({ hourlyData }) => {
+const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
   if (!hourlyData || hourlyData.length === 0) {
     return null;
   }
@@ -15,39 +16,51 @@ const WeatherSummary = ({ hourlyData }) => {
   const currentWeather = getCurrentWeatherData(hourlyData);
   if (!currentWeather) return null;
 
-  // Extract weather data with fallback values and convert to Imperial units
+  // Get unit conversion functions based on preference
+  const getUnit = (param) => getParameterUnits(param, unitPreference);
+
+  // Extract and convert weather data
   const tempC = currentWeather.airTemperature?.sg || 0;
-  const temp = Math.round((tempC * 9/5) + 32); // Convert Celsius to Fahrenheit
+  const tempUnit = getUnit('airTemperature');
+  const temp = Math.round(tempUnit.convert(tempC));
+  
   const humidity = Math.round(currentWeather.humidity?.sg || 0);
-  const pressureHpa = currentWeather.pressure?.sg || 1013;
-  const pressure = Math.round(pressureHpa * 0.02953); // Convert hPa to inHg
-  const windSpeedMs = currentWeather.windSpeed?.sg || 0;
-  const windSpeed = Math.round(windSpeedMs * 2.237); // Convert m/s to mph
+
+  const pressureUnit = getUnit('pressure');
+  const pressure = (currentWeather.pressure?.sg || 1013);
+  const displayPressure = pressureUnit.convert(pressure).toFixed(2);
+
+  const windSpeedUnit = getUnit('windSpeed');
+  const windSpeed = Math.round(windSpeedUnit.convert(currentWeather.windSpeed?.sg || 0));
+  
   const windDir = currentWeather.windDirection?.sg || 0;
-  const visibilityKm = currentWeather.visibility?.sg || 10;
-  const visibility = Math.round(visibilityKm * 0.621371); // Convert km to miles
-  const precipitationMm = currentWeather.precipitation?.sg || 0;
-  const precipitation = Math.round(precipitationMm * 0.0394 * 100) / 100; // Convert mm/h to in/h
+  const windDirection = getWindDirection(windDir);
+  
+  const visibilityUnit = getUnit('visibility');
+  const visibility = Math.round(visibilityUnit.convert(currentWeather.visibility?.sg || 10));
+
+  const precipitationUnit = getUnit('precipitation');
+  const precipitation = precipitationUnit.convert(currentWeather.precipitation?.sg || 0);
+  
   const cloudCover = currentWeather.cloudCover?.sg || 0;
 
   // Calculate derived values
   const feelsLikeC = calculateFeelsLike(tempC, humidity);
-  const feelsLike = Math.round((feelsLikeC * 9/5) + 32); // Convert feels like to Fahrenheit
-  const windDirection = getWindDirection(windDir);
-  const precipChance = Math.round(getPrecipitationChance(precipitationMm, cloudCover));
+  const feelsLike = Math.round(tempUnit.convert(feelsLikeC));
+  const precipChance = Math.round(getPrecipitationChance(currentWeather.precipitation?.sg || 0, cloudCover));
 
   const weatherItems = [
     {
       icon: Thermometer,
       label: 'Temperature',
-      value: `${temp}°F`,
-      subValue: `Feels like ${feelsLike}°F`
+      value: `${temp}°${tempUnit.unit.replace('°','')}`,
+      subValue: `Feels like ${feelsLike}°${tempUnit.unit.replace('°','')}`
     },
     {
       icon: CloudRain,
       label: 'Precipitation',
       value: `${precipChance}%`,
-      subValue: precipitation > 0 ? `${precipitation.toFixed(2)} in/h` : 'No rain'
+      subValue: precipitation > 0 ? `${precipitation.toFixed(2)} ${precipitationUnit.unit}/h` : 'No rain'
     },
     {
       icon: Droplets,
@@ -58,19 +71,19 @@ const WeatherSummary = ({ hourlyData }) => {
     {
       icon: Wind,
       label: 'Wind',
-      value: `${windSpeed} mph`,
+      value: `${windSpeed} ${windSpeedUnit.unit}`,
       subValue: `${windDirection}`
     },
     {
       icon: Gauge,
       label: 'Pressure',
-      value: `${pressure.toFixed(2)} inHg`,
-      subValue: pressure > 30.2 ? 'High' : pressure > 29.8 ? 'Normal' : 'Low'
+      value: `${displayPressure} ${pressureUnit.unit}`,
+      subValue: pressure > 1022 ? 'High' : pressure > 1009 ? 'Normal' : 'Low'
     },
     {
       icon: Eye,
       label: 'Visibility',
-      value: `${visibility} mi`,
+      value: `${visibility} ${visibilityUnit.unit}`,
       subValue: visibility > 5 ? 'Excellent' : visibility > 3 ? 'Good' : 'Poor'
     }
   ];
