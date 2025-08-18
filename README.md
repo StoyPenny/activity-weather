@@ -2,7 +2,8 @@
 
 This project is a React application that displays the best time of day for various activities based on live weather conditions for any location worldwide. It uses the Stormglass API to fetch real-time marine and weather data, providing accurate hourly activity ratings.
 
-<img width="1553" height="2656" alt="localhost_5175_ (1)" src="https://github.com/user-attachments/assets/79ba76ea-c98b-4fa7-b8fe-e659820f579e" />
+<img width="1792" height="2950" alt="localhost_5175_ (3)" src="https://github.com/user-attachments/assets/a2096247-6c0b-480b-8daa-212bfb37823e" />
+
 <img width="1550" height="1129" alt="localhost_5175_ (2)" src="https://github.com/user-attachments/assets/8acb7f02-f8b9-4b42-9f5b-a6a2a40a8cdc" />
 
 
@@ -31,6 +32,7 @@ This project is a React application that displays the best time of day for vario
 
 - **Dynamic Location Support**: Enter any city, address, or use your current location
 - **Live Weather Data**: Integrates with Stormglass API for real-time weather conditions
+- **Activity Scoring Customization**: Customize the settings for each activity to personalize your rating system
 - **Smart Caching**: Location-specific caching that refreshes once per day at local midnight to reduce API calls and improve performance
 - **Geolocation Support**: Use browser's location API to automatically detect your position
 - **Geocoding Integration**: OpenStreetMap Nominatim API for converting addresses to coordinates
@@ -41,7 +43,6 @@ This project is a React application that displays the best time of day for vario
 - **5-Level Rating System**: Detailed activity ratings from Poor to Excellent with color-coded timeline
 - **Hourly Ratings**: Color-coded timeline showing optimal times for each activity with nuanced feedback
 - **Responsive Design**: Built with Tailwind CSS and shadcn/ui components
-- **Fallback System**: Gracefully falls back to mock data if API is unavailable
 
 ## Activity Scoring Customization
 
