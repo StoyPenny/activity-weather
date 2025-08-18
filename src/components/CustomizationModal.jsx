@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Settings, RotateCcw, Save } from 'lucide-react';
-import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference, getParameterUnits } from '../lib/settings';
+import { X, Settings, RotateCcw, Save, Plus, Trash2, GripVertical } from 'lucide-react';
+import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference, getParameterUnits, getActivityList, reorderActivities } from '../lib/settings';
 
 const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
   const [settings, setSettings] = useState(null);
+  const [activityList, setActivityList] = useState([]);
   const [selectedActivity, setSelectedActivity] = useState('Beach Day');
   const [newParameter, setNewParameter] = useState('');
   const [newParamType, setNewParamType] = useState('normalize');
@@ -12,6 +13,9 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
   const [newParamMax, setNewParamMax] = useState(10);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [newActivity, setNewActivity] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragItem, setDragItem] = useState(null);
   
   
   // Convert value for display based on unit preference
@@ -55,6 +59,15 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
     try {
       const loadedSettings = loadSettings();
       setSettings(loadedSettings);
+      
+      // Load activity list from settings
+      const loadedActivities = getActivityList();
+      setActivityList(loadedActivities);
+      
+      // Set the first activity as selected if none is selected or if the selected activity doesn't exist
+      if (loadedActivities.length > 0 && (!selectedActivity || !loadedActivities.includes(selectedActivity))) {
+        setSelectedActivity(loadedActivities[0]);
+      }
     } catch (err) {
       setError('Failed to load settings');
       console.error(err);
@@ -164,7 +177,12 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
     setError(null);
     
     try {
+      // Save settings
       saveSettings(settings);
+      
+      // Save activity list
+      reorderActivities(activityList);
+      
       onSave?.(settings);
       onClose();
     } catch (err) {
@@ -173,6 +191,88 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Handle adding a new activity
+  const handleAddActivity = (e) => {
+    e.preventDefault();
+    
+    if (!newActivity.trim()) {
+      setError('Please enter an activity name');
+      return;
+    }
+    
+    // Check if activity already exists
+    if (activityList.includes(newActivity.trim())) {
+      setError('Activity already exists');
+      return;
+    }
+    
+    try {
+      const updatedActivities = [...activityList, newActivity.trim()];
+      setActivityList(updatedActivities);
+      setNewActivity('');
+      setError(null);
+    } catch (err) {
+      setError('Failed to add activity');
+      console.error(err);
+    }
+  };
+
+  // Handle removing an activity
+  const handleRemoveActivity = (activityName) => {
+    try {
+      const updatedActivities = activityList.filter(activity => activity !== activityName);
+      setActivityList(updatedActivities);
+      
+      // If we're removing the selected activity, select the first one
+      if (selectedActivity === activityName) {
+        setSelectedActivity(updatedActivities.length > 0 ? updatedActivities[0] : '');
+      }
+      
+      setError(null);
+    } catch (err) {
+      setError('Failed to remove activity');
+      console.error(err);
+    }
+  };
+
+  // Handle drag start for reordering
+  const handleDragStart = (e, index) => {
+    setIsDragging(true);
+    setDragItem(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  // Handle drag over for reordering
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  // Handle drop for reordering
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (dragItem === null) return;
+    
+    const newActivities = [...activityList];
+    const draggedItem = newActivities[dragItem];
+    
+    // Remove the dragged item
+    newActivities.splice(dragItem, 1);
+    
+    // Insert the dragged item at the new position
+    newActivities.splice(dropIndex, 0, draggedItem);
+    
+    setActivityList(newActivities);
+    setIsDragging(false);
+    setDragItem(null);
+  };
+
+  // Handle drag end for reordering
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setDragItem(null);
   };
 
   // Handle reset to defaults
@@ -218,7 +318,6 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
     );
   }
 
-  const activities = Object.keys(settings.defaults);
   const userPreferences = getUserPreferences();
   const defaultParameters = getDefaultParameters();
   const allParameters = { ...defaultParameters, ...userPreferences };
@@ -250,10 +349,71 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
           </div>
         )}
 
+        {/* Activity Management */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-md font-medium text-gray-900 dark:text-white">
+              Manage Activities
+            </h3>
+          </div>
+          
+          {/* Add Activity Form */}
+          <form onSubmit={handleAddActivity} className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newActivity}
+              onChange={(e) => setNewActivity(e.target.value)}
+              placeholder="Enter new activity name"
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" />
+              Add
+            </button>
+          </form>
+          
+          {/* Activity List */}
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {activityList.map((activity, index) => (
+              <div
+                key={activity}
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 ${
+                  isDragging && dragItem === index ? 'opacity-50' : ''
+                }`}
+              >
+                <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
+                <span
+                  className={`flex-1 text-gray-900 dark:text-white cursor-pointer ${
+                    selectedActivity === activity ? 'font-medium' : ''
+                  }`}
+                  onClick={() => setSelectedActivity(activity)}
+                >
+                  {activity}
+                </span>
+                <button
+                  onClick={() => handleRemoveActivity(activity)}
+                  className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded-md transition-colors"
+                  aria-label={`Remove ${activity}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+        
         {/* Activity Tabs */}
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-2 overflow-x-auto pb-2">
-            {activities.map((activity) => (
+            {activityList.map((activity) => (
               <button
                 key={activity}
                 onClick={() => setSelectedActivity(activity)}

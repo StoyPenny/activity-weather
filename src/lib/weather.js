@@ -352,26 +352,40 @@ const rateSnorkeling = (d, params) => {
   return (normalize(d.waterTemperature.sg, 26, 6) + inverseNormalize(d.waveHeight.sg, 0.3)) / 2;
 };
 
+// Map of activity names to rating functions
+const ACTIVITY_RATING_FUNCTIONS = {
+  'Surfing': rateSurfing,
+  'Fishing': rateFishing,
+  'Boating': rateBoating,
+  'Hiking': rateHiking,
+  'Camping': rateCamping,
+  'Beach Day': rateBeachDay,
+  'Kayaking': rateKayaking,
+  'Snorkeling': rateSnorkeling
+};
+
 // --- Main Calculation Function - MODIFIED ---
 // This now processes an array of hourly data and returns ratings for each hour.
 export const calculateAllHourlyRatings = (hourlyData) => {
   // Get effective settings (defaults merged with user preferences)
   const settings = getEffectiveSettings();
   
-  const activities = {
-    Surfing: rateSurfing, Fishing: rateFishing, Boating: rateBoating,
-    Hiking: rateHiking, Camping: rateCamping, 'Beach Day': rateBeachDay,
-    Kayaking: rateKayaking, Snorkeling: rateSnorkeling,
-  };
+  // Use the activity list from settings
+  const activityList = settings.activities || Object.keys(ACTIVITY_RATING_FUNCTIONS);
 
   const masterRatings = {};
-  for (const activityName in activities) {
-    // Get parameter configuration for this activity
-    const activityParams = settings.activities?.[activityName] || null;
+  for (const activityName of activityList) {
+    // Choose a rating function: specific one if available, otherwise generic fallback
+    const ratingFunction = ACTIVITY_RATING_FUNCTIONS[activityName]
+      ? ACTIVITY_RATING_FUNCTIONS[activityName]
+      : (d, params) => rateWithParameters(d, params || {});
+    
+    // Get parameter configuration for this activity (may be empty {})
+    const activityParams = settings.activityParameters?.[activityName] || {};
     
     masterRatings[activityName] = hourlyData.map(hourData => ({
         time: hourData.time,
-        rating: activities[activityName](hourData, activityParams)
+        rating: ratingFunction(hourData, activityParams)
     }));
   }
   return masterRatings;

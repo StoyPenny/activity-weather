@@ -39,7 +39,7 @@ This project is a React application that displays the best time of day for vario
 - **Unit Conversion**: Toggle between Metric and Imperial units for all weather data
 - **Persistent Location**: Remembers your location preference in local storage
 - **Data Freshness**: Shows timestamp of last update with manual refresh option
-- **8 Activity Types**: Surfing, Fishing, Boating, Hiking, Camping, Beach Day, Kayaking, and Snorkeling
+- **Activity Management**: Add, remove, reorder, and even create brand new activities to customize your dashboard
 - **5-Level Rating System**: Detailed activity ratings from Poor to Excellent with color-coded timeline
 - **Hourly Ratings**: Color-coded timeline showing optimal times for each activity with nuanced feedback
 - **Responsive Design**: Built with Tailwind CSS and shadcn/ui components
@@ -50,7 +50,7 @@ This application now includes a powerful customization feature that allows users
 
 ### Customizable Parameters
 
-For each of the 8 supported activities, you can customize the weather parameters that contribute to the activity rating.
+For each activity (including built‑in and any new ones you add), you can customize the weather parameters that contribute to the activity rating.
 
 - **Add/Remove Parameters**: Add any weather parameter from the Stormglass API to an activity's rating or remove existing ones.
 - **Flexible Rating Scales**: Two types of rating scales are supported:
@@ -64,6 +64,22 @@ For each of the 8 supported activities, you can customize the weather parameters
 - **Metric & Imperial Toggles**: A dedicated button in the header allows users to instantly switch between Metric (°C, m/s) and Imperial (°F, mph) units.
 - **Real-time Updates**: The customization modal updates in real-time to display values in the selected unit system.
 - **Seamless Conversion**: Input values are automatically converted and stored in a consistent format, regardless of the display unit.
+
+## Activity Management
+
+The application now includes activity management features that allow users to customize which activities are displayed and their order.
+
+### Managing Activities
+
+- **Add Activities**: Add new or custom activities to your dashboard through the customization modal. These activities will appear alongside default ones and be rated using your chosen parameters.
+- **Remove Activities**: Remove activities you're not interested in from your dashboard
+- **Reorder Activities**: Drag and drop activities to rearrange them in your preferred order
+- **Persistent Storage**: All activity preferences are saved to local storage and applied on future visits
+
+To manage activities:
+1. Click the "Customize" button in the header
+2. In the customization modal, use the "Manage Activities" section to add, remove, or reorder activities
+3. Your changes will be applied immediately to your dashboard
 
 ## Setup
 

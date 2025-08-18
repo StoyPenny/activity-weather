@@ -1,12 +1,22 @@
 // --- SETTINGS MANAGEMENT SYSTEM ---
 const SETTINGS_STORAGE_KEY = 'activity_scoring_settings';
-const SETTINGS_VERSION = 1;
+const SETTINGS_VERSION = 2; // Updated version to handle activity list
 
 // Default settings for all activities and parameters
 const DEFAULT_SETTINGS = {
   version: SETTINGS_VERSION,
   lastUpdated: new Date().toISOString(),
   unitPreference: 'metric', // 'metric' or 'imperial'
+  activities: [
+    'Surfing',
+    'Fishing',
+    'Boating',
+    'Hiking',
+    'Camping',
+    'Beach Day',
+    'Kayaking',
+    'Snorkeling'
+  ],
   defaults: {
     'Surfing': {
       'swellHeight': {
@@ -141,6 +151,7 @@ export const loadSettings = () => {
     const merged = {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      activities: parsed.activities || DEFAULT_SETTINGS.activities,
       defaults: {
         ...DEFAULT_SETTINGS.defaults,
         ...parsed.defaults
@@ -181,11 +192,22 @@ export const getEffectiveSettings = () => {
   
   // Merge defaults with user preferences
   const effective = { ...settings };
-  effective.activities = {};
   
-  // For each activity, merge defaults with user preferences
-  for (const [activityName, defaultParams] of Object.entries(settings.defaults)) {
-    effective.activities[activityName] = {
+  // Handle activities list for backward compatibility
+  if (!settings.activities) {
+    // If no activities list exists, create one from defaults
+    effective.activities = Object.keys(settings.defaults || {});
+  } else {
+    effective.activities = settings.activities;
+  }
+  
+  // Create activities parameter mapping
+  effective.activityParameters = {};
+  
+  // For each activity in the activity list, merge defaults with user preferences
+  for (const activityName of settings.activities || []) {
+    const defaultParams = settings.defaults?.[activityName] || {};
+    effective.activityParameters[activityName] = {
       ...defaultParams,
       ...(settings.userPreferences[activityName] || {})
     };
@@ -506,4 +528,93 @@ export const getParameterUnits = (parameter, unitPreference) => {
   
   const paramUnits = units[parameter] || units['default'];
   return paramUnits[unitPreference] || paramUnits['metric'];
+};
+
+/**
+ * Get the list of activities
+ * @returns {Array} Array of activity names
+ */
+export const getActivityList = () => {
+  const settings = loadSettings();
+  // If no activities list exists, create one from defaults for backward compatibility
+  if (!settings.activities) {
+    settings.activities = Object.keys(settings.defaults || {});
+    saveSettings(settings);
+  }
+  return settings.activities || [];
+};
+
+/**
+ * Set the list of activities
+ * @param {Array} activities - Array of activity names
+ */
+export const setActivityList = (activities) => {
+  if (!Array.isArray(activities)) {
+    throw new Error('Activities must be an array');
+  }
+  
+  const settings = loadSettings();
+  settings.activities = activities;
+  saveSettings(settings);
+  return settings;
+};
+
+/**
+ * Add a new activity
+ * @param {string} activityName - Name of the activity to add
+ */
+export const addActivity = (activityName) => {
+  if (typeof activityName !== 'string' || !activityName.trim()) {
+    throw new Error('Activity name must be a non-empty string');
+  }
+  
+  const settings = loadSettings();
+  // Initialize activities array if it doesn't exist
+  if (!settings.activities) {
+    settings.activities = Object.keys(settings.defaults || {});
+  }
+  
+  // Add the activity if it doesn't already exist
+  if (!settings.activities.includes(activityName)) {
+    settings.activities.push(activityName);
+    saveSettings(settings);
+  }
+  
+  return settings;
+};
+
+/**
+ * Remove an activity
+ * @param {string} activityName - Name of the activity to remove
+ */
+export const removeActivity = (activityName) => {
+  if (typeof activityName !== 'string' || !activityName.trim()) {
+    throw new Error('Activity name must be a non-empty string');
+  }
+  
+  const settings = loadSettings();
+  if (settings.activities) {
+    const index = settings.activities.indexOf(activityName);
+    if (index !== -1) {
+      settings.activities.splice(index, 1);
+      saveSettings(settings);
+    }
+  }
+  
+  return settings;
+};
+
+/**
+ * Reorder activities
+ * @param {Array} newOrder - Array of activity names in the new order
+ */
+export const reorderActivities = (newOrder) => {
+  if (!Array.isArray(newOrder)) {
+    throw new Error('New order must be an array');
+  }
+  
+  const settings = loadSettings();
+  settings.activities = newOrder;
+  saveSettings(settings);
+  return settings;
 };
