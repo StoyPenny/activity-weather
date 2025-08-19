@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Settings, RotateCcw, Save, Plus, Trash2, GripVertical } from 'lucide-react';
 import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference, getParameterUnits, getActivityList, reorderActivities } from '../lib/settings';
+import SearchableParameterDropdown from './SearchableParameterDropdown';
 
 const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
   const [settings, setSettings] = useState(null);
@@ -577,12 +578,10 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Parameter Name
                 </label>
-                <input
-                  type="text"
+                <SearchableParameterDropdown
                   value={newParameter}
-                  onChange={(e) => setNewParameter(e.target.value)}
-                  placeholder="e.g., airTemperature, windSpeed"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={setNewParameter}
+                  placeholder="Search for a weather parameter..."
                 />
               </div>
               
@@ -611,12 +610,12 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
                     <input
                       type="number"
                       step="0.1"
-                      value={convertForDisplay(newParamOptimal, newParameter || 'airTemperature')}
-                      onChange={(e) => setNewParamOptimal(convertForStorage(e.target.value, newParameter || 'airTemperature'))}
+                      value={newParameter ? convertForDisplay(newParamOptimal, newParameter) : ''}
+                      onChange={(e) => setNewParamOptimal(newParameter ? convertForStorage(e.target.value, newParameter) : e.target.value)}
                       className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                      {getParameterUnits(newParameter || 'airTemperature', unitPreference).unit}
+                      {newParameter ? getParameterUnits(newParameter, unitPreference).unit : ''}
                     </div>
                   </div>
                 </div>
@@ -629,12 +628,12 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
                       type="number"
                       step="0.1"
                       min="0.1"
-                      value={convertForDisplay(newParamRange, newParameter || 'airTemperature')}
-                      onChange={(e) => setNewParamRange(convertForStorage(e.target.value, newParameter || 'airTemperature'))}
+                      value={newParameter ? convertForDisplay(newParamRange, newParameter) : ''}
+                      onChange={(e) => setNewParamRange(newParameter ? convertForStorage(e.target.value, newParameter) : e.target.value)}
                       className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                      {getParameterUnits(newParameter || 'airTemperature', unitPreference).unit}
+                      {newParameter ? getParameterUnits(newParameter, unitPreference).unit : ''}
                     </div>
                   </div>
                 </div>
@@ -649,12 +648,12 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
                     type="number"
                     step="0.1"
                     min="0.1"
-                    value={convertForDisplay(newParamMax, newParameter || 'windSpeed')}
-                    onChange={(e) => setNewParamMax(convertForStorage(e.target.value, newParameter || 'windSpeed'))}
+                    value={newParameter ? convertForDisplay(newParamMax, newParameter) : ''}
+                    onChange={(e) => setNewParamMax(newParameter ? convertForStorage(e.target.value, newParameter) : e.target.value)}
                     className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                    {getParameterUnits(newParameter || 'windSpeed', unitPreference).unit}
+                    {newParameter ? getParameterUnits(newParameter, unitPreference).unit : ''}
                   </div>
                 </div>
               </div>
