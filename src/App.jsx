@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { fetchWeatherData, calculateAllHourlyRatings, getCacheTimestamp, clearCache } from "./lib/weather";
-import { getCurrentLocationOrDefault, saveLocation } from "./lib/location";
+import { getCurrentLocationOrDefault, saveLocation, removeLocationByIndex } from "./lib/location";
 import { getUnitPreference, setUnitPreference } from "./lib/settings";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
 import LocationInput from "./components/LocationInput";
 import CustomizationModal from "./components/CustomizationModal";
 import WeatherSummary from "./components/WeatherSummary";
 import WeatherChart from "./components/WeatherChart";
-import { RefreshCw, MapPin, Settings } from 'lucide-react';
+import { RefreshCw, MapPin, Settings, X } from 'lucide-react';
 
 function App() {
   const [ratings, setRatings] = useState(null);
@@ -16,13 +16,16 @@ function App() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState(null);
+  const [locations, setLocations] = useState([]); // multiple locations
+  const [activeLocationIndex, setActiveLocationIndex] = useState(0);
   const [showLocationInput, setShowLocationInput] = useState(false);
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
   const [needsInitialLocation, setNeedsInitialLocation] = useState(false);
   const [apiQuota, setApiQuota] = useState(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [unitPreference, setUnitPreferenceState] = useState('metric');
+  const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
+  const [locationToRemove, setLocationToRemove] = useState(null);
 
   const loadWeatherData = async (location = null, forceRefresh = false) => {
     try {
@@ -31,8 +34,7 @@ function App() {
       setError(null);
       setQuotaExceeded(false);
       
-      // Use provided location or current location
-      const targetLocation = location || currentLocation;
+      const targetLocation = location || locations[activeLocationIndex];
       if (!targetLocation) {
         throw new Error('No location available');
       }
@@ -67,6 +69,7 @@ function App() {
   };
 
   const handleRefresh = async () => {
+    const currentLocation = locations[activeLocationIndex];
     if (currentLocation && !quotaExceeded) {
       clearCache(currentLocation.lat, currentLocation.lng);
       await loadWeatherData(null, true);
@@ -75,17 +78,14 @@ function App() {
 
   const handleLocationChange = async (newLocation) => {
     try {
-      // Save the new location
-      saveLocation(newLocation);
-      setCurrentLocation(newLocation);
-      
-      // If this was initial setup, clear the flag
+      const updatedLocations = [...locations, newLocation];
+      setLocations(updatedLocations);
+      setActiveLocationIndex(updatedLocations.length - 1);
+      saveLocation(updatedLocations); // Save whole array now
       if (needsInitialLocation) {
         setNeedsInitialLocation(false);
       }
-      
-      // Load weather data for the new location
-      await loadWeatherData(newLocation, true); // Force refresh for new location
+      await loadWeatherData(newLocation, true);
     } catch (err) {
       setError("Failed to update location.");
       console.error(err);
@@ -113,8 +113,9 @@ function App() {
 
   const handleSaveCustomization = () => {
     // Reload weather data to apply new settings
-    if (currentLocation) {
-      loadWeatherData(currentLocation);
+    const activeLoc = locations[activeLocationIndex];
+    if (activeLoc) {
+      loadWeatherData(activeLoc);
     }
     setShowCustomizationModal(false);
   };
@@ -126,11 +127,54 @@ function App() {
       setUnitPreferenceState(newPreference);
       setUnitPreference(newPreference);
       // Reload weather data to apply new unit preference
-      if (currentLocation) {
-        loadWeatherData(currentLocation);
+      const activeLoc = locations[activeLocationIndex];
+      if (activeLoc) {
+        loadWeatherData(activeLoc);
       }
     } catch (err) {
       console.warn('Failed to toggle unit preference:', err);
+    }
+  };
+
+  // Handle location removal
+  const handleRemoveLocation = (indexToRemove) => {
+    setLocationToRemove({ index: indexToRemove, name: locations[indexToRemove].name });
+    setShowRemoveConfirmation(true);
+  };
+
+  // Confirm location removal
+  const confirmRemoveLocation = () => {
+    try {
+      const updatedLocations = removeLocationByIndex(locations, locationToRemove.index);
+      setLocations(updatedLocations);
+      
+      if (updatedLocations.length === 0) {
+        // No locations left - return to initial setup
+        setNeedsInitialLocation(true);
+        setShowLocationInput(true);
+        setActiveLocationIndex(0);
+        setRatings(null);
+        setHourlyData(null);
+        setLastUpdated(null);
+      } else {
+        // Adjust active location index
+        let newActiveIndex = activeLocationIndex;
+        if (locationToRemove.index === activeLocationIndex) {
+          newActiveIndex = 0; // Switch to first location
+        } else if (locationToRemove.index < activeLocationIndex) {
+          newActiveIndex = activeLocationIndex - 1; // Adjust for removed location
+        }
+        setActiveLocationIndex(newActiveIndex);
+        
+        // Load weather data for new active location
+        loadWeatherData(updatedLocations[newActiveIndex], true);
+      }
+    } catch (err) {
+      setError('Failed to remove location');
+      console.error(err);
+    } finally {
+      setShowRemoveConfirmation(false);
+      setLocationToRemove(null);
     }
   };
 
@@ -139,12 +183,11 @@ function App() {
     const initializeApp = async () => {
       try {
         // Get current location from storage (no default fallback)
-        const location = getCurrentLocationOrDefault();
+        const stored = getCurrentLocationOrDefault();
         
-        if (location) {
-          // We have a stored location, proceed normally
-          setCurrentLocation(location);
-          await loadWeatherData(location);
+        if (stored && Array.isArray(stored) && stored.length > 0) {
+          setLocations(stored);
+          await loadWeatherData(stored[0]);
         } else {
           // No stored location, show location selection
           setNeedsInitialLocation(true);
@@ -171,6 +214,16 @@ function App() {
     }
   }, []);
 
+  // Watch for active location changes and reload weather data
+  useEffect(() => {
+    if (locations.length > 0 && activeLocationIndex >= 0 && activeLocationIndex < locations.length) {
+      const activeLocation = locations[activeLocationIndex];
+      if (activeLocation) {
+        loadWeatherData(activeLocation);
+      }
+    }
+  }, [activeLocationIndex, locations]);
+
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
@@ -192,14 +245,41 @@ function App() {
           </h1>
           <div className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-4">
             <p className="mb-2">Full-day activity ratings for</p>
-            {currentLocation && (
-              <button
-                onClick={handleShowLocationInput}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium"
-              >
-                <MapPin className="w-4 h-4" />
-                {currentLocation.name}
-              </button>
+            {locations.length > 0 && (
+              <div className="flex flex-wrap gap-2 justify-center">
+                {locations.map((loc, idx) => (
+                  <div key={idx} className="relative group">
+                    <button
+                      onClick={() => setActiveLocationIndex(idx)}
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium ${
+                        idx === activeLocationIndex
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50'
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4" />
+                      {loc.name}
+                    </button>
+                    {/* Remove button - only show on hover */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveLocation(idx);
+                      }}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      title={`Remove ${loc.name}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={handleShowLocationInput}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-medium"
+                >
+                  + Add Location
+                </button>
+              </div>
             )}
           </div>
 
@@ -284,18 +364,18 @@ function App() {
 
         {/* Weather Summary */}
         {hourlyData && !loading && (
-          <WeatherSummary hourlyData={hourlyData} unitPreference={unitPreference} />
+          <WeatherSummary hourlyData={hourlyData} unitPreference={unitPreference} activeLocation={locations[activeLocationIndex]} />
         )}
 
         {/* Weather Chart */}
         {hourlyData && !loading && (
-          <WeatherChart hourlyData={hourlyData} unitPreference={unitPreference} />
+          <WeatherChart hourlyData={hourlyData} unitPreference={unitPreference} activeLocation={locations[activeLocationIndex]} />
         )}
 
         {ratings && (
           <div className="grid gap-6 max-w-4xl mx-auto">
             {Object.entries(ratings).map(([activity, hourlyRatings]) => (
-              <ActivityTimelineCard key={activity} title={activity} hourlyRatings={hourlyRatings} />
+              <ActivityTimelineCard key={activity} title={activity} hourlyRatings={hourlyRatings} activeLocation={locations[activeLocationIndex]} />
             ))}
           </div>
         )}
@@ -303,10 +383,11 @@ function App() {
         {/* Location Input Modal */}
         {showLocationInput && (
           <LocationInput
-            currentLocation={currentLocation}
             onLocationChange={handleLocationChange}
             onClose={handleCloseLocationInput}
             isInitialSetup={needsInitialLocation}
+            allLocations={locations}
+            onLocationRemove={handleRemoveLocation}
           />
         )}
         
@@ -317,6 +398,37 @@ function App() {
             onSave={handleSaveCustomization}
             unitPreference={unitPreference}
           />
+        )}
+
+        {/* Location Removal Confirmation Dialog */}
+        {showRemoveConfirmation && locationToRemove && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-sm w-full p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Remove Location</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Remove <strong>{locationToRemove.name}</strong> from your saved locations?
+                {locations.length === 1 && (
+                  <span className="block mt-2 text-sm text-amber-600 dark:text-amber-400">
+                    This will remove your last location and return you to the setup screen.
+                  </span>
+                )}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRemoveConfirmation(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmRemoveLocation}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

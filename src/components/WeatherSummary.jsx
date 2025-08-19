@@ -8,7 +8,7 @@ import {
 } from '../lib/weather';
 import { getParameterUnits } from '../lib/settings';
 
-const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
+const WeatherSummary = ({ hourlyData, unitPreference = 'metric', activeLocation = null }) => {
   if (!hourlyData || hourlyData.length === 0) {
     return null;
   }
@@ -92,7 +92,7 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
     <Card className="p-6 mb-8 bg-white dark:bg-gray-800 shadow-lg">
       <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          Current Weather Conditions
+          Current Weather Conditions {activeLocation ? `- ${activeLocation.name}` : ''}
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Real-time weather data for your location

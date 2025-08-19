@@ -1,5 +1,6 @@
 // Test script for unit conversion functionality
 import { convertTemperature, convertSpeed, convertDistance, getParameterUnits } from './settings';
+import { saveLocation, loadLocation, clearStoredLocation } from './location';
 
 console.log('=== Unit Conversion Test ===');
 
@@ -35,3 +36,17 @@ console.log('waveHeight (imperial):', getParameterUnits('waveHeight', 'imperial'
 
 console.log('\n=== Test Summary ===');
 console.log('All unit conversion tests completed.');
+
+// Multi-location persistence tests
+console.log('\n=== Multi-location Storage Test ===');
+const testLocations = [
+  { name: 'New York, NY', lat: 40.7128, lng: -74.006 },
+  { name: 'Los Angeles, CA', lat: 34.0522, lng: -118.2437 }
+];
+saveLocation(testLocations);
+const loaded = loadLocation();
+console.log('Saved 2 locations, loaded:', loaded);
+
+clearStoredLocation();
+const cleared = loadLocation();
+console.log('After clearing, loaded locations:', cleared);

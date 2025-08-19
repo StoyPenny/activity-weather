@@ -2,8 +2,8 @@
 
 // No default location - users must select their location
 
-// Local storage key for user's location
-const LOCATION_STORAGE_KEY = 'user_location';
+// Local storage key for user's locations (now supports array)
+const LOCATION_STORAGE_KEY = 'user_locations';
 
 // OpenStreetMap Nominatim API configuration
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org/search';
@@ -224,16 +224,20 @@ const reverseGeocode = async (lat, lng) => {
  * Save location to local storage
  * @param {Object} location - Location object {name, lat, lng}
  */
-export const saveLocation = (location) => {
+export const saveLocation = (locations) => {
   try {
-    if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
-      throw new Error('Invalid location object');
+    if (!Array.isArray(locations)) {
+      throw new Error('Locations must be an array');
     }
-
-    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(location));
-    console.log('Location saved to storage:', location.name);
+    for (const loc of locations) {
+      if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') {
+        throw new Error('Invalid location object in array');
+      }
+    }
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(locations));
+    console.log('Locations saved to storage:', locations.map(l => l.name).join(', '));
   } catch (error) {
-    console.warn('Failed to save location to storage:', error);
+    console.warn('Failed to save locations to storage:', error);
   }
 };
 
@@ -245,23 +249,19 @@ export const loadLocation = () => {
   try {
     const stored = localStorage.getItem(LOCATION_STORAGE_KEY);
     if (!stored) {
-      return null;
+      return [];
     }
-
-    const location = JSON.parse(stored);
-    
-    // Validate the stored location
-    if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
-      console.warn('Invalid location data in storage, removing');
+    const locations = JSON.parse(stored);
+    if (!Array.isArray(locations)) {
+      console.warn('Invalid locations data in storage, removing');
       localStorage.removeItem(LOCATION_STORAGE_KEY);
-      return null;
+      return [];
     }
-
-    return location;
+    return locations;
   } catch (error) {
-    console.warn('Failed to load location from storage:', error);
+    console.warn('Failed to load locations from storage:', error);
     localStorage.removeItem(LOCATION_STORAGE_KEY);
-    return null;
+    return [];
   }
 };
 
@@ -270,7 +270,7 @@ export const loadLocation = () => {
  * @returns {Object|null} Location object or null if not found
  */
 export const getCurrentLocationOrDefault = () => {
-  return loadLocation();
+  return loadLocation(); // now returns array of saved locations
 };
 
 /**
@@ -279,10 +279,31 @@ export const getCurrentLocationOrDefault = () => {
 export const clearStoredLocation = () => {
   try {
     localStorage.removeItem(LOCATION_STORAGE_KEY);
-    console.log('Stored location cleared');
+    console.log('All stored locations cleared');
   } catch (error) {
-    console.warn('Failed to clear stored location:', error);
+    console.warn('Failed to clear stored locations:', error);
   }
+};
+
+/**
+ * Remove location by index from locations array
+ * @param {Array} locations - Current locations array
+ * @param {number} indexToRemove - Index of location to remove
+ * @returns {Array} Updated locations array
+ */
+export const removeLocationByIndex = (locations, indexToRemove) => {
+  if (!Array.isArray(locations)) {
+    throw new Error('Locations must be an array');
+  }
+  
+  if (indexToRemove < 0 || indexToRemove >= locations.length) {
+    throw new Error('Invalid location index');
+  }
+  
+  const updatedLocations = locations.filter((_, index) => index !== indexToRemove);
+  saveLocation(updatedLocations); // Save to localStorage
+  console.log(`Removed location at index ${indexToRemove}. Remaining locations:`, updatedLocations.map(l => l.name).join(', '));
+  return updatedLocations;
 };
 
 // --- VALIDATION FUNCTIONS ---

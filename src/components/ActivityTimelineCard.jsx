@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from "./ui/card"
 
-const ActivityTimelineCard = ({ title, hourlyRatings }) => {
+const ActivityTimelineCard = ({ title, hourlyRatings, activeLocation }) => {
   const formatTime = (isoString) => {
     return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', hour12: true });
   }
@@ -41,7 +41,9 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle>
+          {title} {activeLocation ? `- ${activeLocation.name}` : ''}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex space-x-1 w-full">

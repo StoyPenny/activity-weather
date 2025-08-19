@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { MapPin, Navigation, Search, X } from 'lucide-react';
-import { geocodeLocation, getCurrentLocation } from '../lib/location';
+import { geocodeLocation, getCurrentLocation, removeLocationByIndex } from '../lib/location';
 
-const LocationInput = ({ currentLocation, onLocationChange, onClose, isInitialSetup = false }) => {
+const LocationInput = ({ onLocationChange, onClose, isInitialSetup = false, allLocations = [], onLocationRemove }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -73,11 +73,24 @@ const LocationInput = ({ currentLocation, onLocationChange, onClose, isInitialSe
           )}
         </div>
 
-        {/* Current Location Display - only show if not initial setup and we have a location */}
-        {!isInitialSetup && currentLocation && (
+        {/* Current Locations Display - show all saved */}
+        {!isInitialSetup && allLocations && allLocations.length > 0 && (
           <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-            <p className="text-sm text-gray-600 dark:text-gray-300">Current location:</p>
-            <p className="font-medium text-gray-900 dark:text-white">{currentLocation.name}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Saved locations:</p>
+            <div className="space-y-2">
+              {allLocations.map((loc, idx) => (
+                <div key={idx} className="flex items-center justify-between group">
+                  <span className="font-medium text-gray-900 dark:text-white">{loc.name}</span>
+                  <button
+                    onClick={() => onLocationRemove && onLocationRemove(idx)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-opacity"
+                    title={`Remove ${loc.name}`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

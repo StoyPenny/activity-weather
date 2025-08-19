@@ -13,7 +13,7 @@ import { Card } from './ui/card';
 import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain } from 'lucide-react';
 import { getParameterUnits } from '../lib/settings';
 
-const WeatherChart = ({ hourlyData, unitPreference }) => {
+const WeatherChart = ({ hourlyData, unitPreference, activeLocation }) => {
   const [visibleMetrics, setVisibleMetrics] = useState({
     temperature: true,
     humidity: true,
@@ -152,7 +152,7 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
     <Card className="p-6 mb-8 bg-white dark:bg-gray-800 shadow-lg">
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          Weather Trends Throughout the Day
+          Weather Trends Throughout the Day {activeLocation ? `- ${activeLocation.name}` : ''}
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Hourly weather data visualization with toggleable metrics
