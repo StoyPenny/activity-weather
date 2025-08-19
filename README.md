@@ -6,6 +6,9 @@ This project is a React application that displays the best time of day for vario
 
 <img width="1550" height="1129" alt="localhost_5175_ (2)" src="https://github.com/user-attachments/assets/8acb7f02-f8b9-4b42-9f5b-a6a2a40a8cdc" />
 
+<img width="1151" height="683" alt="Screenshot 2025-08-19 082837" src="https://github.com/user-attachments/assets/891574f5-fd2b-4b0b-976a-fb9c55a32c0e" />
+
+
 
 ##### Table of Contents
 
