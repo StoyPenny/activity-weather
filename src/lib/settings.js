@@ -618,3 +618,189 @@ export const reorderActivities = (newOrder) => {
   saveSettings(settings);
   return settings;
 };
+
+/**
+ * Get list of valid weather parameters from Stormglass API
+ * @returns {Array} Array of valid parameter names
+ */
+export const getValidWeatherParameters = () => {
+  // Import the WEATHER_PARAMS from weather.js
+  // Note: This is a static list based on Stormglass API documentation
+  return [
+    // Basic atmospheric parameters
+    'airTemperature', 'airTemperature80m', 'airTemperature100m', 'airTemperature1000hpa',
+    'airTemperature800hpa', 'airTemperature500hpa', 'airTemperature200hpa', 'pressure',
+    'cloudCover', 'humidity', 'dewPointTemperature', 'visibility', 'precipitation',
+    'rain', 'snow', 'graupel',
+    
+    // Wind parameters
+    'windSpeed', 'windSpeed20m', 'windSpeed30m', 'windSpeed40m', 'windSpeed50m',
+    'windSpeed80m', 'windSpeed100m', 'windSpeed1000hpa', 'windSpeed800hpa',
+    'windSpeed500hpa', 'windSpeed200hpa', 'windDirection', 'windDirection20m',
+    'windDirection30m', 'windDirection40m', 'windDirection50m', 'windDirection80m',
+    'windDirection100m', 'windDirection1000hpa', 'windDirection800hpa',
+    'windDirection500hpa', 'windDirection200hpa', 'gust',
+    
+    // Wave and marine parameters
+    'waveHeight', 'waveDirection', 'wavePeriod', 'windWaveHeight', 'windWaveDirection',
+    'windWavePeriod', 'swellHeight', 'swellDirection', 'swellPeriod',
+    'secondarySwellHeight', 'secondarySwellDirection', 'secondarySwellPeriod',
+    'waterTemperature',
+    
+    // Current parameters
+    'currentSpeed', 'currentDirection',
+    
+    // Ice and snow parameters
+    'iceCover', 'snowDepth', 'snowAlbedo', 'seaIceThickness', 'seaLevel'
+  ];
+};
+
+/**
+ * Validate a weather parameter name
+ * @param {string} parameterName - Parameter name to validate
+ * @returns {Object} Validation result with isValid, suggestions, etc.
+ */
+export const validateWeatherParameter = (parameterName) => {
+  const validParams = getValidWeatherParameters();
+  const validParamSet = new Set(validParams);
+  
+  // Check if parameter is valid
+  if (validParamSet.has(parameterName)) {
+    return { isValid: true, parameter: parameterName };
+  }
+  
+  // Check for similar parameters (fuzzy matching)
+  const similarParams = validParams.filter(param =>
+    param.toLowerCase().includes(parameterName.toLowerCase()) ||
+    parameterName.toLowerCase().includes(param.toLowerCase())
+  );
+  
+  return {
+    isValid: false,
+    parameter: parameterName,
+    suggestions: similarParams.slice(0, 5) // Limit to top 5 suggestions
+  };
+};
+
+/**
+ * Validate parameter configuration object
+ * @param {Object} paramConfig - Parameter configuration to validate
+ * @returns {Object} Validation result
+ */
+export const validateParameterConfig = (paramConfig) => {
+  const errors = [];
+  
+  if (!paramConfig || typeof paramConfig !== 'object') {
+    errors.push('Parameter configuration must be an object');
+    return { isValid: false, errors };
+  }
+  
+  if (!paramConfig.type || (paramConfig.type !== 'normalize' && paramConfig.type !== 'inverse')) {
+    errors.push('Parameter type must be "normalize" or "inverse"');
+  }
+  
+  if (paramConfig.type === 'normalize') {
+    if (typeof paramConfig.optimal !== 'number') {
+      errors.push('Normalize type requires "optimal" to be a number');
+    }
+    if (typeof paramConfig.range !== 'number' || paramConfig.range <= 0) {
+      errors.push('Normalize type requires "range" to be a positive number');
+    }
+  } else if (paramConfig.type === 'inverse') {
+    if (typeof paramConfig.max !== 'number' || paramConfig.max <= 0) {
+      errors.push('Inverse type requires "max" to be a positive number');
+    }
+  }
+  
+  return { isValid: errors.length === 0, errors };
+};
+
+/**
+ * Validate and clean user preferences for an activity
+ * @param {string} activityName - Name of the activity
+ * @param {Object} preferences - Parameter preferences to validate
+ * @returns {Object} Validation result with cleaned preferences
+ */
+export const validateAndCleanUserPreferences = (activityName, preferences) => {
+  const cleanedPreferences = {};
+  const warnings = [];
+  const errors = [];
+  
+  for (const [paramName, paramConfig] of Object.entries(preferences)) {
+    // Validate parameter name
+    const paramValidation = validateWeatherParameter(paramName);
+    if (!paramValidation.isValid) {
+      const suggestion = paramValidation.suggestions.length > 0
+        ? ` Did you mean: ${paramValidation.suggestions.join(', ')}?`
+        : '';
+      errors.push(`Invalid parameter '${paramName}' for activity '${activityName}'.${suggestion}`);
+      continue;
+    }
+    
+    // Validate parameter configuration
+    const configValidation = validateParameterConfig(paramConfig);
+    if (!configValidation.isValid) {
+      errors.push(`Invalid configuration for parameter '${paramName}': ${configValidation.errors.join(', ')}`);
+      continue;
+    }
+    
+    // Parameter is valid, add to cleaned preferences
+    cleanedPreferences[paramName] = { ...paramConfig };
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    cleanedPreferences,
+    warnings,
+    errors
+  };
+};
+
+/**
+ * Enhanced update user preferences with validation
+ * @param {string} activityName - Name of the activity
+ * @param {Object} preferences - Parameter preferences to update
+ * @param {boolean} skipValidation - Skip validation (for internal use)
+ * @returns {Object} Updated settings or validation errors
+ */
+export const updateUserPreferencesWithValidation = (activityName, preferences, skipValidation = false) => {
+  if (!skipValidation) {
+    const validation = validateAndCleanUserPreferences(activityName, preferences);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+    }
+    
+    if (validation.warnings.length > 0) {
+      console.warn('Parameter warnings:', validation.warnings);
+    }
+    
+    // Use cleaned preferences
+    preferences = validation.cleanedPreferences;
+  }
+  
+  // Use the original updateUserPreferences function
+  return updateUserPreferences(activityName, preferences);
+};
+
+/**
+ * Get parameter suggestions for an activity type
+ * @param {string} activityType - Type of activity (e.g., 'marine', 'atmospheric', 'wind')
+ * @returns {Array} Array of suggested parameters
+ */
+export const getParameterSuggestions = (activityType) => {
+  const suggestions = {
+    marine: ['waveHeight', 'wavePeriod', 'windWaveHeight', 'windWavePeriod', 'swellHeight', 'swellPeriod', 'waterTemperature', 'currentSpeed'],
+    atmospheric: ['airTemperature', 'pressure', 'cloudCover', 'humidity', 'precipitation', 'visibility'],
+    wind: ['windSpeed', 'windDirection', 'gust'],
+    surfing: ['swellHeight', 'swellPeriod', 'windSpeed', 'waveHeight', 'wavePeriod'],
+    fishing: ['windSpeed', 'cloudCover', 'waterTemperature', 'currentSpeed'],
+    boating: ['windSpeed', 'waveHeight', 'visibility', 'precipitation'],
+    hiking: ['airTemperature', 'windSpeed', 'cloudCover', 'precipitation', 'humidity'],
+    camping: ['airTemperature', 'windSpeed', 'cloudCover', 'precipitation'],
+    beach: ['airTemperature', 'windSpeed', 'cloudCover', 'humidity'],
+    kayaking: ['windSpeed', 'waveHeight', 'currentSpeed', 'waterTemperature'],
+    snorkeling: ['waterTemperature', 'waveHeight', 'visibility', 'currentSpeed']
+  };
+  
+  return suggestions[activityType.toLowerCase()] || suggestions.atmospheric;
+};

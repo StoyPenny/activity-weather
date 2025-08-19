@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchWeatherData, calculateAllHourlyRatings, getCacheTimestamp, clearCache } from "./lib/weather";
+import { fetchWeatherData, calculateAllHourlyRatingsWithDetails, getCacheTimestamp, clearCache } from "./lib/weather";
 import { getCurrentLocationOrDefault, saveLocation, removeLocationByIndex } from "./lib/location";
 import { getUnitPreference, setUnitPreference } from "./lib/settings";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
@@ -40,7 +40,7 @@ function App() {
       }
       
       const fetchedData = await fetchWeatherData(targetLocation.lat, targetLocation.lng, forceRefresh);
-      const calculatedRatings = calculateAllHourlyRatings(fetchedData.hours);
+      const calculatedRatings = calculateAllHourlyRatingsWithDetails(fetchedData.hours);
       setHourlyData(fetchedData.hours);
       setRatings(calculatedRatings);
       

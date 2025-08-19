@@ -4,6 +4,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card"
+import MetricTooltip from "./MetricTooltip"
 
 const ActivityTimelineCard = ({ title, hourlyRatings, activeLocation }) => {
   const formatTime = (isoString) => {
@@ -47,18 +48,38 @@ const ActivityTimelineCard = ({ title, hourlyRatings, activeLocation }) => {
       </CardHeader>
       <CardContent>
         <div className="flex space-x-1 w-full">
-          {hourlyRatings.map(({ time, rating }) => {
+          {hourlyRatings.map((hourData) => {
+            const { time, rating: ratingData, metrics } = hourData;
+            // Ensure rating is always a number (handle both object and number cases)
+            const rating = typeof ratingData === 'object' ? ratingData.rating : ratingData;
             const colorClasses = getColorClasses(rating);
             return (
-              <div key={time} className="flex-1 group relative">
+              <div
+                key={time}
+                className="flex-1 group relative"
+                role="button"
+                tabIndex={0}
+                aria-label={`${title} rating: ${rating.toFixed(1)} out of 10 at ${formatTime(time)}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    // Focus will show the tooltip via CSS
+                  }
+                }}
+              >
                 <div className={`h-20 w-full rounded transition-all duration-200 bg-gray-100`}></div>
                 <div
                   className={`w-full rounded transition-all duration-200 absolute bottom-0 ${colorClasses}`}
-                  style={{ height: `${(rating.toFixed(1) / 10) * 100}%` }}
+                  style={{ height: `${(rating / 10) * 100}%` }}
                 ></div>
-                <div className="absolute bottom-full mb-2 w-max left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  {formatTime(time)}: {rating.toFixed(1)}/10
-                  <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity pointer-events-none z-10">
+                  <MetricTooltip
+                    time={time}
+                    rating={rating}
+                    metrics={metrics}
+                    activityName={title}
+                  />
+                  <svg className="absolute text-gray-800 h-2 w-full left-1/2 -translate-x-1/2 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                     <polygon className="fill-current" points="0,0 127.5,127.5 255,0"></polygon>
                   </svg>
                 </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MapPin, Navigation, Search, X } from 'lucide-react';
-import { geocodeLocation, getCurrentLocation, removeLocationByIndex } from '../lib/location';
+import { geocodeLocation, getCurrentLocation } from '../lib/location';
 
 const LocationInput = ({ onLocationChange, onClose, isInitialSetup = false, allLocations = [], onLocationRemove }) => {
   const [inputValue, setInputValue] = useState('');
