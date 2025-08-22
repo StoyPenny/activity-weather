@@ -622,16 +622,32 @@ export const fetchForecastData = async (lat, lng, days = 10, forceRefresh = fals
   }
 };
 
-// Filter forecast data by specific date
+// Helper function to get local date string (YYYY-MM-DD) from a Date object
+const getLocalDateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper function to get local date string from UTC timestamp
+const getLocalDateStringFromUTC = (utcTimeString) => {
+  const utcDate = new Date(utcTimeString);
+  return getLocalDateString(utcDate);
+};
+
+// Filter forecast data by specific date (timezone-aware)
 export const filterForecastDataByDate = (forecastData, targetDate) => {
   if (!forecastData || !forecastData.hours) {
     return { hours: [], meta: forecastData?.meta || null };
   }
 
-  const targetDateStr = targetDate.toISOString().split('T')[0]; // Get YYYY-MM-DD format
+  // Get target date string in local timezone
+  const targetDateStr = getLocalDateString(targetDate);
   
   const filteredHours = forecastData.hours.filter(hour => {
-    const hourDateStr = hour.time.split('T')[0];
+    // Convert UTC hour time to local date string for comparison
+    const hourDateStr = getLocalDateStringFromUTC(hour.time);
     return hourDateStr === targetDateStr;
   });
 
@@ -641,7 +657,7 @@ export const filterForecastDataByDate = (forecastData, targetDate) => {
   };
 };
 
-// Get available forecast dates from forecast data
+// Get available forecast dates from forecast data (timezone-aware)
 export const getAvailableForecastDates = (forecastData) => {
   if (!forecastData || !forecastData.hours) {
     return [];
@@ -649,20 +665,25 @@ export const getAvailableForecastDates = (forecastData) => {
 
   const dates = new Set();
   forecastData.hours.forEach(hour => {
-    const dateStr = hour.time.split('T')[0];
+    // Convert UTC hour time to local date string
+    const dateStr = getLocalDateStringFromUTC(hour.time);
     dates.add(dateStr);
   });
 
-  return Array.from(dates).sort().map(dateStr => new Date(dateStr + 'T00:00:00'));
+  // Convert date strings back to Date objects in local timezone
+  return Array.from(dates).sort().map(dateStr => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed in Date constructor
+  });
 };
 
-// Check if a date has forecast data available
+// Check if a date has forecast data available (timezone-aware)
 export const isForecastDateAvailable = (forecastData, targetDate) => {
   const availableDates = getAvailableForecastDates(forecastData);
-  const targetDateStr = targetDate.toISOString().split('T')[0];
+  const targetDateStr = getLocalDateString(targetDate);
   
   return availableDates.some(date =>
-    date.toISOString().split('T')[0] === targetDateStr
+    getLocalDateString(date) === targetDateStr
   );
 };
 
