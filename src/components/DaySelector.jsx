@@ -91,7 +91,7 @@ const DaySelector = ({
         {/* Next Day Button */}
         <button
           onClick={handleNext}
-          disabled={selectedIndex >= availableDates.length - 1}
+          disabled={selectedIndex >= availableDates.length - 2}
           className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           title="Next day"
         >
@@ -103,7 +103,7 @@ const DaySelector = ({
       {availableDates.length > 1 && (
         <div className="mt-3 flex justify-center md:hidden">
           <div className="flex items-center gap-1">
-            {availableDates.map((date, index) => (
+            {availableDates.slice(0, 10).map((date, index) => (
               <button
                 key={index}
                 onClick={() => onDateChange(date)}
@@ -121,7 +121,7 @@ const DaySelector = ({
 
       {/* Quick Navigation Buttons */}
       <div className="mt-4 flex gap-2 justify-center">
-        {availableDates.map((date, index) => {
+        {availableDates.slice(0, 10).map((date, index) => {
           const isSelected = index === selectedIndex;
           const isToday = date.toDateString() === new Date().toDateString();
           
