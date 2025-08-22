@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Card } from './ui/card';
 
@@ -8,7 +7,6 @@ const DaySelector = ({
   onDateChange,
   className = ""
 }) => {
-  const dateInputRef = useRef(null);
 
   // Find current selected date index
   const selectedIndex = availableDates.findIndex(date => 
@@ -28,27 +26,6 @@ const DaySelector = ({
     }
   };
 
-  // Date picker handler
-  const handleDatePickerChange = (event) => {
-    const selectedDateStr = event.target.value;
-    const selectedDateObj = new Date(selectedDateStr + 'T00:00:00');
-    
-    // Find the closest available date
-    const availableDate = availableDates.find(date =>
-      date.toDateString() === selectedDateObj.toDateString()
-    );
-    
-    if (availableDate) {
-      onDateChange(availableDate);
-    }
-  };
-
-  // Handle clicking on the styled overlay to open date picker
-  const handleDatePickerClick = () => {
-    if (dateInputRef.current) {
-      dateInputRef.current.showPicker();
-    }
-  };
 
   // Format date for display
   const formatDisplayDate = (date) => {
@@ -72,15 +49,6 @@ const DaySelector = ({
     }
   };
 
-  // Format date for input value (YYYY-MM-DD)
-  const formatInputDate = (date) => {
-    if (!date) return '';
-    return date.toISOString().split('T')[0];
-  };
-
-  // Get min and max dates for date picker
-  const minDate = availableDates.length > 0 ? formatInputDate(availableDates[0]) : '';
-  const maxDate = availableDates.length > 0 ? formatInputDate(availableDates[availableDates.length - 1]) : '';
 
   if (availableDates.length === 0) {
     return (
@@ -105,35 +73,18 @@ const DaySelector = ({
           <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
         </button>
 
-        {/* Date Display and Picker */}
+        {/* Date Display */}
         <div className="flex-1 mx-4">
-          <div className="relative">
-            {/* Hidden native date input */}
-            <input
-              ref={dateInputRef}
-              type="date"
-              value={formatInputDate(selectedDate)}
-              onChange={handleDatePickerChange}
-              min={minDate}
-              max={maxDate}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            
-            {/* Styled overlay that looks like the original button */}
-            <div
-              onClick={handleDatePickerClick}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-            >
-              <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <span className="font-medium text-gray-900 dark:text-white">
-                {formatDisplayDate(selectedDate)}
+          <div className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <span className="font-medium text-gray-900 dark:text-white">
+              {formatDisplayDate(selectedDate)}
+            </span>
+            {selectedDate && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {selectedDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
               </span>
-              {selectedDate && (
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {selectedDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
