@@ -89,13 +89,14 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric', activeLocation 
   ];
 
   return (
-    <Card className="p-6 mb-8 bg-white dark:bg-gray-800 shadow-lg">
+    <Card className="p-6 mb-8 bg-white dark:bg-gray-800 shadow-lg border-l-4 border-l-green-500">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <span className="inline-block w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
           Current Weather Conditions {activeLocation ? `- ${activeLocation.name}` : ''}
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Real-time weather data for your location
+          Live weather data for today - always shows current conditions regardless of forecast day selection
         </p>
       </div>
       

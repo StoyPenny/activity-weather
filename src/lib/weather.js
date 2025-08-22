@@ -288,18 +288,85 @@ const fetchStormglassData = async (lat, lng) => {
   };
 };
 
+// --- FORECAST DATA FETCH FUNCTION ---
+const fetchStormglassForecastData = async (lat, lng, days = 10) => {
+  if (!STORMGLASS_API_KEY) {
+    throw new Error('STORMGLASS_API_KEY not found in environment variables');
+  }
+
+  // Validate coordinates
+  if (typeof lat !== 'number' || typeof lng !== 'number' ||
+      lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    throw new Error('Invalid coordinates provided');
+  }
+
+  // Validate days parameter
+  if (typeof days !== 'number' || days < 1 || days > 10) {
+    throw new Error('Days parameter must be between 1 and 10');
+  }
+
+  // Get forecast date range (today to days ahead)
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endDate = new Date(startOfToday);
+  endDate.setDate(endDate.getDate() + days);
+
+  const params = new URLSearchParams({
+    lat: lat.toString(),
+    lng: lng.toString(),
+    params: WEATHER_PARAMS.join(','),
+    start: Math.floor(startOfToday.getTime() / 1000).toString(),
+    end: Math.floor(endDate.getTime() / 1000).toString()
+  });
+
+  const response = await fetch(`${STORMGLASS_BASE_URL}?${params}`, {
+    headers: {
+      'Authorization': STORMGLASS_API_KEY
+    }
+  });
+
+  // Handle 402 Payment Required (quota exceeded) specifically
+  if (response.status === 402) {
+    try {
+      const data = await response.json();
+      if (data.meta) {
+        throw new Error(`API_QUOTA_EXCEEDED:${JSON.stringify(data.meta)}`);
+      }
+    } catch {
+      console.warn('Could not parse 402 response, assuming quota exceeded');
+    }
+    throw new Error(`API_QUOTA_EXCEEDED:{"dailyQuota": 10, "requestCount": "unknown"}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Stormglass API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  // Check if API quota is exceeded via error message
+  if (data.errors && data.errors.key === "API quota exceeded" && data.meta) {
+    throw new Error(`API_QUOTA_EXCEEDED:${JSON.stringify(data.meta)}`);
+  }
+
+  return {
+    hours: data.hours,
+    meta: data.meta
+  };
+};
+
 // --- CACHE MANAGEMENT FUNCTIONS ---
 // Cache refreshes once per calendar day at local midnight
-const generateCacheKey = (lat, lng) => {
+const generateCacheKey = (lat, lng, type = 'current') => {
   // Round to 3 decimal places for cache key (roughly 100m precision)
   const roundedLat = Math.round(lat * 1000) / 1000;
   const roundedLng = Math.round(lng * 1000) / 1000;
-  return `weather_${roundedLat}_${roundedLng}`;
+  return `weather_${type}_${roundedLat}_${roundedLng}`;
 };
 
-const getCachedData = (lat, lng) => {
+const getCachedData = (lat, lng, type = 'current') => {
   try {
-    const cacheKey = generateCacheKey(lat, lng);
+    const cacheKey = generateCacheKey(lat, lng, type);
     const cached = localStorage.getItem(cacheKey);
     if (!cached) return null;
     
@@ -310,44 +377,62 @@ const getCachedData = (lat, lng) => {
     // Check if cache is from the same calendar day (local timezone)
     // Cache expires at midnight and refreshes for the new day
     if (isSameCalendarDay(cacheDate, currentDate)) {
-      console.log(`Using cached weather data for ${lat}, ${lng} (cached on ${cacheDate.toLocaleDateString()})`);
+      console.log(`Using cached ${type} weather data for ${lat}, ${lng} (cached on ${cacheDate.toLocaleDateString()})`);
       return { data, timestamp };
     } else {
-      console.log(`Cache expired (cached on ${cacheDate.toLocaleDateString()}, now ${currentDate.toLocaleDateString()}), will fetch fresh data`);
+      console.log(`${type} cache expired (cached on ${cacheDate.toLocaleDateString()}, now ${currentDate.toLocaleDateString()}), will fetch fresh data`);
       localStorage.removeItem(cacheKey);
       return null;
     }
   } catch (error) {
     console.warn('Error reading cache:', error);
-    const cacheKey = generateCacheKey(lat, lng);
+    const cacheKey = generateCacheKey(lat, lng, type);
     localStorage.removeItem(cacheKey);
     return null;
   }
 };
 
-const setCachedData = (data, lat, lng) => {
+const setCachedData = (data, lat, lng, type = 'current') => {
   try {
-    const cacheKey = generateCacheKey(lat, lng);
+    const cacheKey = generateCacheKey(lat, lng, type);
     const now = new Date();
     const cacheObject = {
       data,
       timestamp: now.getTime(), // Store timestamp for date comparison
       cacheDate: now.toLocaleDateString(), // Human-readable cache date for debugging
-      location: { lat, lng }
+      location: { lat, lng },
+      type: type
     };
     localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
-    console.log(`Weather data cached successfully for ${lat}, ${lng} on ${now.toLocaleDateString()}`);
+    console.log(`${type} weather data cached successfully for ${lat}, ${lng} on ${now.toLocaleDateString()}`);
   } catch (error) {
     console.warn('Error caching data:', error);
   }
 };
 
-export const clearCache = (lat, lng) => {
+const getCachedForecastData = (lat, lng) => {
+  return getCachedData(lat, lng, 'forecast');
+};
+
+const setCachedForecastData = (data, lat, lng) => {
+  setCachedData(data, lat, lng, 'forecast');
+};
+
+export const clearCache = (lat, lng, type = null) => {
   if (lat !== undefined && lng !== undefined) {
-    // Clear cache for specific location
-    const cacheKey = generateCacheKey(lat, lng);
-    localStorage.removeItem(cacheKey);
-    console.log(`Weather cache cleared for ${lat}, ${lng}`);
+    if (type) {
+      // Clear cache for specific location and type
+      const cacheKey = generateCacheKey(lat, lng, type);
+      localStorage.removeItem(cacheKey);
+      console.log(`${type} weather cache cleared for ${lat}, ${lng}`);
+    } else {
+      // Clear both current and forecast cache for specific location
+      const currentKey = generateCacheKey(lat, lng, 'current');
+      const forecastKey = generateCacheKey(lat, lng, 'forecast');
+      localStorage.removeItem(currentKey);
+      localStorage.removeItem(forecastKey);
+      console.log(`All weather caches cleared for ${lat}, ${lng}`);
+    }
   } else {
     // Clear all weather caches
     const keys = Object.keys(localStorage);
@@ -360,9 +445,9 @@ export const clearCache = (lat, lng) => {
   }
 };
 
-export const getCacheTimestamp = (lat, lng) => {
+export const getCacheTimestamp = (lat, lng, type = 'current') => {
   try {
-    const cacheKey = generateCacheKey(lat, lng);
+    const cacheKey = generateCacheKey(lat, lng, type);
     const cached = localStorage.getItem(cacheKey);
     if (!cached) return null;
     
@@ -371,6 +456,50 @@ export const getCacheTimestamp = (lat, lng) => {
   } catch {
     return null;
   }
+};
+
+// --- UTILITY FUNCTIONS FOR FORECAST DATA ---
+// Generate mock forecast data for multiple days
+const generateMockForecastData = (days) => {
+  const mockHours = [];
+  const baseDate = new Date();
+  
+  for (let day = 0; day < days; day++) {
+    for (let hour = 0; hour < 24; hour++) {
+      const currentDate = new Date(baseDate);
+      currentDate.setDate(currentDate.getDate() + day);
+      currentDate.setHours(hour, 0, 0, 0);
+      
+      // Vary conditions slightly for each day and hour
+      const dayVariation = Math.sin(day * 0.5) * 3; // Slight variation across days
+      const hourVariation = Math.sin(hour * 0.26) * 5; // Variation across hours of day
+      
+      mockHours.push({
+        time: currentDate.toISOString(),
+        airTemperature: { sg: 22 + dayVariation + hourVariation },
+        cloudCover: { sg: Math.max(0, Math.min(100, 30 + dayVariation * 5 + hourVariation * 2)) },
+        swellHeight: { sg: Math.max(0.5, 1.5 + dayVariation * 0.3) },
+        swellPeriod: { sg: Math.max(4, 8 + dayVariation * 0.5) },
+        waterTemperature: { sg: 23 + dayVariation * 0.5 },
+        waveHeight: { sg: Math.max(0.3, 1.0 + dayVariation * 0.2) },
+        wavePeriod: { sg: Math.max(5, 7.5 + dayVariation * 0.3) },
+        waveDirection: { sg: 180 + day * 5 },
+        windWaveHeight: { sg: Math.max(0.2, 0.7 + dayVariation * 0.1) },
+        windWavePeriod: { sg: Math.max(4, 6.5 + dayVariation * 0.2) },
+        windWaveDirection: { sg: 185 + day * 5 },
+        windSpeed: { sg: Math.max(0, 4 + dayVariation + hourVariation * 0.5) },
+        humidity: { sg: Math.max(30, Math.min(90, 60 + dayVariation * 3)) },
+        precipitation: { sg: Math.max(0, dayVariation > 2 ? dayVariation - 2 : 0) },
+        pressure: { sg: 1013 + dayVariation },
+        dewPointTemperature: { sg: 16 + dayVariation * 0.5 },
+        visibility: { sg: Math.max(3, 10 - Math.abs(dayVariation)) },
+        gust: { sg: Math.max(0, 5 + dayVariation + hourVariation * 0.3) },
+        windDirection: { sg: 180 + day * 10 }
+      });
+    }
+  }
+  
+  return mockHours;
 };
 
 // --- MAIN FETCH FUNCTION WITH CACHING AND FALLBACK ---
@@ -428,6 +557,113 @@ export const fetchWeatherData = async (lat, lng, forceRefresh = false) => {
       meta: null // No quota info for mock data
     };
   }
+};
+
+// --- FORECAST FETCH FUNCTION WITH CACHING AND FALLBACK ---
+export const fetchForecastData = async (lat, lng, days = 10, forceRefresh = false) => {
+  // Validate coordinates
+  if (typeof lat !== 'number' || typeof lng !== 'number') {
+    throw new Error('Invalid coordinates: lat and lng must be numbers');
+  }
+
+  // Validate days parameter
+  if (typeof days !== 'number' || days < 1 || days > 10) {
+    throw new Error('Days parameter must be between 1 and 10');
+  }
+
+  // Check cache first unless force refresh is requested
+  if (!forceRefresh) {
+    const cached = getCachedForecastData(lat, lng);
+    if (cached) {
+      return cached.data;
+    }
+  }
+
+  try {
+    console.log(`Attempting to fetch ${days}-day forecast data from Stormglass API for ${lat}, ${lng}...`);
+    const liveData = await fetchStormglassForecastData(lat, lng, days);
+    console.log('Successfully fetched forecast data');
+    
+    // Cache the fresh forecast data
+    setCachedForecastData(liveData, lat, lng);
+    
+    return liveData;
+  } catch (error) {
+    // Check if this is a quota exceeded error
+    if (error.message.startsWith('API_QUOTA_EXCEEDED:')) {
+      const metaString = error.message.replace('API_QUOTA_EXCEEDED:', '');
+      const quotaMeta = JSON.parse(metaString);
+      console.warn('API quota exceeded for forecast. Preserving cached data if available.');
+      
+      // Try to return cached forecast data without clearing it
+      const cached = getCachedForecastData(lat, lng);
+      if (cached) {
+        // Return cached data but with updated quota meta
+        return {
+          ...cached.data,
+          meta: quotaMeta
+        };
+      }
+      
+      // If no cache available, throw quota exceeded error with meta
+      const quotaError = new Error('API quota exceeded');
+      quotaError.quotaMeta = quotaMeta;
+      throw quotaError;
+    }
+    
+    console.warn('Failed to fetch forecast data, falling back to mock data:', error.message);
+    // Generate mock forecast data for multiple days
+    const mockForecastData = generateMockForecastData(days);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return {
+      hours: mockForecastData,
+      meta: null // No quota info for mock data
+    };
+  }
+};
+
+// Filter forecast data by specific date
+export const filterForecastDataByDate = (forecastData, targetDate) => {
+  if (!forecastData || !forecastData.hours) {
+    return { hours: [], meta: forecastData?.meta || null };
+  }
+
+  const targetDateStr = targetDate.toISOString().split('T')[0]; // Get YYYY-MM-DD format
+  
+  const filteredHours = forecastData.hours.filter(hour => {
+    const hourDateStr = hour.time.split('T')[0];
+    return hourDateStr === targetDateStr;
+  });
+
+  return {
+    hours: filteredHours,
+    meta: forecastData.meta
+  };
+};
+
+// Get available forecast dates from forecast data
+export const getAvailableForecastDates = (forecastData) => {
+  if (!forecastData || !forecastData.hours) {
+    return [];
+  }
+
+  const dates = new Set();
+  forecastData.hours.forEach(hour => {
+    const dateStr = hour.time.split('T')[0];
+    dates.add(dateStr);
+  });
+
+  return Array.from(dates).sort().map(dateStr => new Date(dateStr + 'T00:00:00'));
+};
+
+// Check if a date has forecast data available
+export const isForecastDateAvailable = (forecastData, targetDate) => {
+  const availableDates = getAvailableForecastDates(forecastData);
+  const targetDateStr = targetDate.toISOString().split('T')[0];
+  
+  return availableDates.some(date =>
+    date.toISOString().split('T')[0] === targetDateStr
+  );
 };
 
 // --- RATING LOGIC ---
