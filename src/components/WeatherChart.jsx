@@ -149,10 +149,9 @@ const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate
   };
 
   return (
-    <Card className="p-6 mb-8 bg-white dark:bg-gray-800 shadow-lg">
+    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-gray-800 shadow-lg">
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-          <span className="inline-block w-3 h-3 bg-blue-500 rounded-full"></span>
           Weather Trends Throughout the Day {activeLocation ? `- ${activeLocation.name}` : ''}
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">

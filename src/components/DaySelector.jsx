@@ -1,14 +1,14 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Card } from './ui/card';
 
-const DaySelector = ({ 
-  availableDates = [], 
-  selectedDate, 
-  onDateChange, 
-  className = "" 
+const DaySelector = ({
+  availableDates = [],
+  selectedDate,
+  onDateChange,
+  className = ""
 }) => {
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const dateInputRef = useRef(null);
 
   // Find current selected date index
   const selectedIndex = availableDates.findIndex(date => 
@@ -34,14 +34,20 @@ const DaySelector = ({
     const selectedDateObj = new Date(selectedDateStr + 'T00:00:00');
     
     // Find the closest available date
-    const availableDate = availableDates.find(date => 
+    const availableDate = availableDates.find(date =>
       date.toDateString() === selectedDateObj.toDateString()
     );
     
     if (availableDate) {
       onDateChange(availableDate);
     }
-    setShowDatePicker(false);
+  };
+
+  // Handle clicking on the styled overlay to open date picker
+  const handleDatePickerClick = () => {
+    if (dateInputRef.current) {
+      dateInputRef.current.showPicker();
+    }
   };
 
   // Format date for display
@@ -58,9 +64,10 @@ const DaySelector = ({
       return 'Tomorrow';
     } else {
       return date.toLocaleDateString([], { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
+        
+        // month: 'short', 
+        // day: 'numeric',
+        weekday: 'short'
       });
     }
   };
@@ -86,7 +93,7 @@ const DaySelector = ({
   }
 
   return (
-    <Card className={`p-4 ${className}`}>
+    <Card className={`p-4 max-w-4xl mx-auto ${className}`}>
       <div className="flex items-center justify-between">
         {/* Previous Day Button */}
         <button
@@ -101,9 +108,21 @@ const DaySelector = ({
         {/* Date Display and Picker */}
         <div className="flex-1 mx-4">
           <div className="relative">
-            <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            {/* Hidden native date input */}
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={formatInputDate(selectedDate)}
+              onChange={handleDatePickerChange}
+              min={minDate}
+              max={maxDate}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            
+            {/* Styled overlay that looks like the original button */}
+            <div
+              onClick={handleDatePickerClick}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               <span className="font-medium text-gray-900 dark:text-white">
@@ -114,34 +133,7 @@ const DaySelector = ({
                   {selectedDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
                 </span>
               )}
-            </button>
-
-            {/* Date Picker Dropdown */}
-            {showDatePicker && (
-              <div className="absolute top-full left-0 right-0 mt-2 z-10">
-                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Select Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formatInputDate(selectedDate)}
-                    onChange={handleDatePickerChange}
-                    min={minDate}
-                    max={maxDate}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <div className="mt-3 flex justify-end gap-2">
-                    <button
-                      onClick={() => setShowDatePicker(false)}
-                      className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -158,7 +150,7 @@ const DaySelector = ({
 
       {/* Date Range Indicator */}
       {availableDates.length > 1 && (
-        <div className="mt-3 flex justify-center">
+        <div className="mt-3 flex justify-center md:hidden">
           <div className="flex items-center gap-1">
             {availableDates.map((date, index) => (
               <button
@@ -178,7 +170,7 @@ const DaySelector = ({
 
       {/* Quick Navigation Buttons */}
       <div className="mt-4 flex gap-2 justify-center">
-        {availableDates.slice(0, 5).map((date, index) => {
+        {availableDates.map((date, index) => {
           const isSelected = index === selectedIndex;
           const isToday = date.toDateString() === new Date().toDateString();
           
@@ -186,7 +178,7 @@ const DaySelector = ({
             <button
               key={index}
               onClick={() => onDateChange(date)}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs rounded-md transition-colors hidden md:flex ${
                 isSelected
                   ? 'bg-blue-500 text-white'
                   : isToday
@@ -198,11 +190,11 @@ const DaySelector = ({
             </button>
           );
         })}
-        {availableDates.length > 5 && (
+        {/* {availableDates.length > 10 && (
           <span className="px-2 py-1 text-xs text-gray-400 dark:text-gray-500">
-            +{availableDates.length - 5} more
+            +{availableDates.length - 10} more
           </span>
-        )}
+        )} */}
       </div>
     </Card>
   );

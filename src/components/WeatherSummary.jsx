@@ -89,7 +89,7 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric', activeLocation 
   ];
 
   return (
-    <Card className="p-6 mb-8 bg-white dark:bg-gray-800 shadow-lg border-l-4 border-l-green-500">
+    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-gray-800 shadow-lg">
       <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
           <span className="inline-block w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
