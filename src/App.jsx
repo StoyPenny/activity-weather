@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react';
-import { fetchWeatherData, calculateAllHourlyRatingsWithDetails, getCacheTimestamp, clearCache } from "./lib/weather";
+import { useEffect, useState, useCallback } from 'react';
+import {
+  fetchWeatherData,
+  fetchForecastData,
+  calculateAllHourlyRatingsWithDetails,
+  getCacheTimestamp,
+  clearCache,
+  filterForecastDataByDate,
+  getAvailableForecastDates
+} from "./lib/weather";
 import { getCurrentLocationOrDefault, saveLocation, removeLocationByIndex } from "./lib/location";
 import { getUnitPreference, setUnitPreference } from "./lib/settings";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
@@ -7,12 +15,22 @@ import LocationInput from "./components/LocationInput";
 import CustomizationModal from "./components/CustomizationModal";
 import WeatherSummary from "./components/WeatherSummary";
 import WeatherChart from "./components/WeatherChart";
+import DaySelector from "./components/DaySelector";
 import { RefreshCw, MapPin, Settings, X } from 'lucide-react';
 
 function App() {
-  const [ratings, setRatings] = useState(null);
-  const [hourlyData, setHourlyData] = useState(null);
+  // Current weather data (always today's current conditions)
+  const [currentWeatherData, setCurrentWeatherData] = useState(null);
+  
+  // Forecast data and selected day
+  const [forecastData, setForecastData] = useState(null);
+  const [selectedForecastDate, setSelectedForecastDate] = useState(new Date());
+  const [selectedDayData, setSelectedDayData] = useState(null);
+  const [selectedDayRatings, setSelectedDayRatings] = useState(null);
+  
+  // UI state
   const [loading, setLoading] = useState(true);
+  const [forecastLoading, setForecastLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,7 +45,7 @@ function App() {
   const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
   const [locationToRemove, setLocationToRemove] = useState(null);
 
-  const loadWeatherData = async (location = null, forceRefresh = false) => {
+  const loadWeatherData = useCallback(async (location = null, forceRefresh = false) => {
     try {
       setLoading(!forceRefresh); // Don't show main loading if it's just a refresh
       setRefreshing(forceRefresh);
@@ -39,19 +57,22 @@ function App() {
         throw new Error('No location available');
       }
       
-      const fetchedData = await fetchWeatherData(targetLocation.lat, targetLocation.lng, forceRefresh);
-      const calculatedRatings = calculateAllHourlyRatingsWithDetails(fetchedData.hours);
-      setHourlyData(fetchedData.hours);
-      setRatings(calculatedRatings);
+      // Fetch current weather data (today only)
+      const currentData = await fetchWeatherData(targetLocation.lat, targetLocation.lng, forceRefresh);
+      setCurrentWeatherData(currentData.hours);
       
       // Store API quota information if available
-      if (fetchedData.meta) {
-        setApiQuota(fetchedData.meta);
+      if (currentData.meta) {
+        setApiQuota(currentData.meta);
       }
       
       // Update timestamp
       const timestamp = getCacheTimestamp(targetLocation.lat, targetLocation.lng);
       setLastUpdated(timestamp || Date.now());
+      
+      // Load forecast data (7-10 days)
+      await loadForecastData(targetLocation, forceRefresh);
+      
     } catch (err) {
       // Handle quota exceeded error specially
       if (err.message === 'API quota exceeded' && err.quotaMeta) {
@@ -65,6 +86,70 @@ function App() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  }, [locations, activeLocationIndex]);
+
+  const loadForecastData = useCallback(async (location, forceRefresh = false) => {
+    try {
+      setForecastLoading(true);
+      
+      // Fetch 10-day forecast data
+      const forecast = await fetchForecastData(location.lat, location.lng, 10, forceRefresh);
+      setForecastData(forecast);
+      
+      // Get available dates and set initial selected date to today
+      const availableDates = getAvailableForecastDates(forecast);
+      if (availableDates.length > 0) {
+        const today = new Date();
+        const todayDate = availableDates.find(date =>
+          date.toDateString() === today.toDateString()
+        ) || availableDates[0];
+        
+        setSelectedForecastDate(todayDate);
+        updateSelectedDayData(forecast, todayDate);
+      }
+      
+    } catch (err) {
+      console.warn('Failed to load forecast data:', err);
+      // Don't set error for forecast failure, just log it
+    } finally {
+      setForecastLoading(false);
+    }
+  }, []);
+
+  const updateSelectedDayData = useCallback((forecast, date) => {
+    if (!forecast || !date) return;
+    
+    const dayData = filterForecastDataByDate(forecast, date);
+    setSelectedDayData(dayData.hours);
+    
+    if (dayData.hours.length > 0) {
+      const dayRatings = calculateAllHourlyRatingsWithDetails(dayData.hours);
+      setSelectedDayRatings(dayRatings);
+    } else {
+      setSelectedDayRatings(null);
+    }
+  }, []);
+
+  const handleDateChange = (newDate) => {
+    setSelectedForecastDate(newDate);
+    if (forecastData) {
+      // Check if the selected date has available data
+      const availableDates = getAvailableForecastDates(forecastData);
+      const isDateAvailable = availableDates.some(date =>
+        date.toDateString() === newDate.toDateString()
+      );
+      
+      if (isDateAvailable) {
+        updateSelectedDayData(forecastData, newDate);
+        setError(null); // Clear any previous errors
+      } else {
+        // Handle unavailable date
+        console.warn(`No forecast data available for ${newDate.toDateString()}`);
+        setSelectedDayData(null);
+        setSelectedDayRatings(null);
+        setError(`No forecast data available for ${newDate.toLocaleDateString()}. Please select a different date.`);
+      }
     }
   };
 
@@ -153,8 +238,10 @@ function App() {
         setNeedsInitialLocation(true);
         setShowLocationInput(true);
         setActiveLocationIndex(0);
-        setRatings(null);
-        setHourlyData(null);
+        setCurrentWeatherData(null);
+        setSelectedDayRatings(null);
+        setSelectedDayData(null);
+        setForecastData(null);
         setLastUpdated(null);
       } else {
         // Adjust active location index
@@ -222,7 +309,7 @@ function App() {
         loadWeatherData(activeLocation);
       }
     }
-  }, [activeLocationIndex, locations]);
+  }, [activeLocationIndex, locations, loadWeatherData]);
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return '';
@@ -238,7 +325,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <main className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="container mx-auto px-2 sm:px-4 py-8 sm:px-6 lg:px-8">
         <header className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-white mb-4">
             Hourly Activity Planner
@@ -362,21 +449,74 @@ function App() {
           </div>
         )}
 
-        {/* Weather Summary */}
-        {hourlyData && !loading && (
-          <WeatherSummary hourlyData={hourlyData} unitPreference={unitPreference} activeLocation={locations[activeLocationIndex]} />
+        
+
+        {/* Weather Summary - Always shows current conditions */}
+        {currentWeatherData && !loading && (
+          <WeatherSummary
+            hourlyData={currentWeatherData}
+            unitPreference={unitPreference}
+            activeLocation={locations[activeLocationIndex]}
+          />
         )}
 
-        {/* Weather Chart */}
-        {hourlyData && !loading && (
-          <WeatherChart hourlyData={hourlyData} unitPreference={unitPreference} activeLocation={locations[activeLocationIndex]} />
+        
+
+        {/* Weather Chart - Shows selected day data */}
+        {selectedDayData && !loading && (
+          <WeatherChart
+            hourlyData={selectedDayData}
+            unitPreference={unitPreference}
+            activeLocation={locations[activeLocationIndex]}
+            selectedDate={selectedForecastDate}
+          />
         )}
 
-        {ratings && (
+        {/* Day Selector - Only show when forecast data is available */}
+        {forecastData && !loading && (
+          <DaySelector
+            availableDates={getAvailableForecastDates(forecastData)}
+            selectedDate={selectedForecastDate}
+            onDateChange={handleDateChange}
+            className="mb-8"
+          />
+        )}
+
+        {/* Activity Timeline Cards - Shows selected day ratings */}
+        {selectedDayRatings && (
           <div className="grid gap-6 max-w-4xl mx-auto">
-            {Object.entries(ratings).map(([activity, hourlyRatings]) => (
-              <ActivityTimelineCard key={activity} title={activity} hourlyRatings={hourlyRatings} activeLocation={locations[activeLocationIndex]} />
+            {Object.entries(selectedDayRatings).map(([activity, hourlyRatings]) => (
+              <ActivityTimelineCard
+                key={activity}
+                title={activity}
+                hourlyRatings={hourlyRatings}
+                activeLocation={locations[activeLocationIndex]}
+                selectedDate={selectedForecastDate}
+              />
             ))}
+          </div>
+        )}
+
+        {/* No data message for selected day */}
+        {forecastData && selectedForecastDate && !selectedDayData && !loading && !forecastLoading && (
+          <div className="text-center py-12">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 max-w-md mx-auto">
+              <h3 className="text-lg font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                No Data Available
+              </h3>
+              <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+                No forecast data available for {selectedForecastDate.toLocaleDateString()}.
+                Please select a different date from the available options.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading indicator for forecast data */}
+        {forecastLoading && (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-blue-500 dark:border-gray-700 dark:border-t-blue-400"></div>
+            <span className="ml-2 text-gray-600 dark:text-gray-400">Loading forecast...</span>
           </div>
         )}
 
@@ -436,3 +576,4 @@ function App() {
 }
 
 export default App;
+

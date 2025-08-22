@@ -6,7 +6,7 @@ import {
 } from "./ui/card"
 import MetricTooltip from "./MetricTooltip"
 
-const ActivityTimelineCard = ({ title, hourlyRatings, activeLocation }) => {
+const ActivityTimelineCard = ({ title, hourlyRatings, activeLocation, selectedDate }) => {
   const formatTime = (isoString) => {
     return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', hour12: true });
   }
@@ -39,11 +39,19 @@ const ActivityTimelineCard = ({ title, hourlyRatings, activeLocation }) => {
     );
   }
 
+  // const isToday = selectedDate && selectedDate.toDateString() === new Date().toDateString();
+  // const isForecastDay = selectedDate && selectedDate > new Date();
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
+        <CardTitle className="flex items-center gap-2">
           {title} {activeLocation ? `- ${activeLocation.name}` : ''}
+          {selectedDate && (
+            <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+              ({selectedDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })})
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -88,9 +96,18 @@ const ActivityTimelineCard = ({ title, hourlyRatings, activeLocation }) => {
           })}
         </div>
         <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2 px-1">
-          <span>{formatTime(hourlyRatings[0].time)}</span>
-          <span>{formatTime(hourlyRatings[hourlyRatings.length - 1].time)}</span>
+          <span>12:00 AM</span>
+          <span>11:00 PM</span>
         </div>
+        {selectedDate && (
+          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 text-center">
+            24-hour timeline for {selectedDate.toLocaleDateString([], {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
