@@ -127,11 +127,273 @@ const PARAMETER_VALIDATION = {
 // --- CACHING CONFIGURATION ---
 // Cache refreshes once per calendar day at local midnight
 
+// Cache management configuration
+const CACHE_CONFIG = {
+  // Maximum total cache size in bytes (4MB - leaving 1MB buffer for other data)
+  MAX_TOTAL_CACHE_SIZE: 4 * 1024 * 1024,
+  // Maximum size for a single cache entry (1MB)
+  MAX_ENTRY_SIZE: 1024 * 1024,
+  // Maximum number of cache entries
+  MAX_CACHE_ENTRIES: 20,
+  // Cache entry prefix for weather data
+  CACHE_PREFIX: 'weather_',
+  // Compression threshold - compress entries larger than this (100KB)
+  COMPRESSION_THRESHOLD: 100 * 1024
+};
+
 // Helper function to check if two dates are the same calendar day (local timezone)
 const isSameCalendarDay = (date1, date2) => {
   return date1.getFullYear() === date2.getFullYear() &&
          date1.getMonth() === date2.getMonth() &&
          date1.getDate() === date2.getDate();
+};
+
+// --- CACHE SIZE MANAGEMENT ---
+// Get the size of a string in bytes (UTF-8)
+const getStringSize = (str) => {
+  return new Blob([str]).size;
+};
+
+// Get total cache size for weather data
+const getTotalCacheSize = () => {
+  let totalSize = 0;
+  const keys = Object.keys(localStorage);
+  
+  for (const key of keys) {
+    if (key.startsWith(CACHE_CONFIG.CACHE_PREFIX)) {
+      try {
+        const value = localStorage.getItem(key);
+        if (value) {
+          totalSize += getStringSize(value);
+        }
+      } catch (error) {
+        console.warn(`Error reading cache entry ${key}:`, error);
+      }
+    }
+  }
+  
+  return totalSize;
+};
+
+// Get all weather cache entries with metadata
+const getCacheEntries = () => {
+  const entries = [];
+  const keys = Object.keys(localStorage);
+  
+  for (const key of keys) {
+    if (key.startsWith(CACHE_CONFIG.CACHE_PREFIX)) {
+      try {
+        const value = localStorage.getItem(key);
+        if (value) {
+          const parsed = JSON.parse(value);
+          entries.push({
+            key,
+            size: getStringSize(value),
+            timestamp: parsed.timestamp || 0,
+            lastAccessed: parsed.lastAccessed || parsed.timestamp || 0,
+            type: parsed.type || 'unknown',
+            location: parsed.location || null
+          });
+        }
+      } catch (error) {
+        console.warn(`Error parsing cache entry ${key}:`, error);
+        // Remove corrupted entries
+        localStorage.removeItem(key);
+      }
+    }
+  }
+  
+  return entries.sort((a, b) => b.lastAccessed - a.lastAccessed);
+};
+
+// --- CACHE EVICTION STRATEGIES ---
+// Remove least recently used cache entries
+const evictLRUEntries = (targetSize) => {
+  const entries = getCacheEntries();
+  let currentSize = getTotalCacheSize();
+  let removedCount = 0;
+  
+  // Sort by last accessed time (oldest first)
+  entries.sort((a, b) => a.lastAccessed - b.lastAccessed);
+  
+  for (const entry of entries) {
+    if (currentSize <= targetSize) break;
+    
+    try {
+      localStorage.removeItem(entry.key);
+      currentSize -= entry.size;
+      removedCount++;
+      console.log(`Evicted cache entry: ${entry.key} (${(entry.size / 1024).toFixed(1)}KB)`);
+    } catch (error) {
+      console.warn(`Error removing cache entry ${entry.key}:`, error);
+    }
+  }
+  
+  return removedCount;
+};
+
+// Remove expired cache entries
+const evictExpiredEntries = () => {
+  const entries = getCacheEntries();
+  const currentDate = new Date();
+  let removedCount = 0;
+  
+  for (const entry of entries) {
+    try {
+      const entryDate = new Date(entry.timestamp);
+      
+      // Remove entries that are not from the same calendar day
+      if (!isSameCalendarDay(entryDate, currentDate)) {
+        localStorage.removeItem(entry.key);
+        removedCount++;
+        console.log(`Evicted expired cache entry: ${entry.key}`);
+      }
+    } catch (error) {
+      console.warn(`Error checking expiry for ${entry.key}:`, error);
+    }
+  }
+  
+  return removedCount;
+};
+
+// Remove entries exceeding count limit
+const evictExcessEntries = () => {
+  const entries = getCacheEntries();
+  let removedCount = 0;
+  
+  if (entries.length > CACHE_CONFIG.MAX_CACHE_ENTRIES) {
+    // Sort by last accessed (oldest first) and remove excess
+    entries.sort((a, b) => a.lastAccessed - b.lastAccessed);
+    const entriesToRemove = entries.slice(0, entries.length - CACHE_CONFIG.MAX_CACHE_ENTRIES);
+    
+    for (const entry of entriesToRemove) {
+      try {
+        localStorage.removeItem(entry.key);
+        removedCount++;
+        console.log(`Evicted excess cache entry: ${entry.key}`);
+      } catch (error) {
+        console.warn(`Error removing excess entry ${entry.key}:`, error);
+      }
+    }
+  }
+  
+  return removedCount;
+};
+
+// --- DATA COMPRESSION ---
+// Simple compression using JSON optimization
+const compressWeatherData = (data) => {
+  try {
+    // Create a more compact representation
+    const compressed = {
+      h: data.hours?.map(hour => {
+        const compactHour = { t: hour.time };
+        
+        // Only store the 'sg' values, not the full objects
+        for (const [param, value] of Object.entries(hour)) {
+          if (param !== 'time' && value && typeof value === 'object' && value.sg !== undefined) {
+            compactHour[param] = value.sg;
+          }
+        }
+        
+        return compactHour;
+      }) || [],
+      m: data.meta || null
+    };
+    
+    return compressed;
+  } catch (error) {
+    console.warn('Error compressing weather data:', error);
+    return data;
+  }
+};
+
+// Decompress weather data back to original format
+const decompressWeatherData = (compressed) => {
+  try {
+    if (!compressed.h) {
+      // Data is not compressed, return as-is
+      return compressed;
+    }
+    
+    const decompressed = {
+      hours: compressed.h.map(hour => {
+        const expandedHour = { time: hour.t };
+        
+        // Restore the object format with 'sg' property
+        for (const [param, value] of Object.entries(hour)) {
+          if (param !== 't') {
+            expandedHour[param] = { sg: value };
+          }
+        }
+        
+        return expandedHour;
+      }),
+      meta: compressed.m
+    };
+    
+    return decompressed;
+  } catch (error) {
+    console.warn('Error decompressing weather data:', error);
+    return compressed;
+  }
+};
+
+// --- CACHE HEALTH MANAGEMENT ---
+// Perform cache maintenance
+const performCacheMaintenance = () => {
+  try {
+    console.log('Starting cache maintenance...');
+    
+    const initialSize = getTotalCacheSize();
+    const initialEntries = getCacheEntries().length;
+    
+    // Step 1: Remove expired entries
+    const expiredRemoved = evictExpiredEntries();
+    
+    // Step 2: Remove excess entries
+    const excessRemoved = evictExcessEntries();
+    
+    // Step 3: Check if we're still over size limit
+    const currentSize = getTotalCacheSize();
+    if (currentSize > CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE) {
+      const targetSize = CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE * 0.8; // Target 80% of max
+      const lruRemoved = evictLRUEntries(targetSize);
+      console.log(`Cache maintenance: removed ${lruRemoved} LRU entries`);
+    }
+    
+    const finalSize = getTotalCacheSize();
+    const finalEntries = getCacheEntries().length;
+    
+    console.log(`Cache maintenance completed:
+      - Initial: ${initialEntries} entries, ${(initialSize / 1024).toFixed(1)}KB
+      - Removed: ${expiredRemoved} expired, ${excessRemoved} excess
+      - Final: ${finalEntries} entries, ${(finalSize / 1024).toFixed(1)}KB`);
+    
+    return {
+      initialSize,
+      finalSize,
+      entriesRemoved: expiredRemoved + excessRemoved,
+      success: true
+    };
+  } catch (error) {
+    console.error('Error during cache maintenance:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Check if cache operation is safe
+const isCacheOperationSafe = (dataSize) => {
+  const currentSize = getTotalCacheSize();
+  const projectedSize = currentSize + dataSize;
+  
+  return {
+    safe: projectedSize <= CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE,
+    currentSize,
+    projectedSize,
+    maxSize: CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE,
+    utilizationPercent: (projectedSize / CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE) * 100
+  };
 };
 
 // --- MOCK DATA SERVICE (FALLBACK) ---
@@ -366,19 +628,38 @@ const generateCacheKey = (lat, lng, type = 'current') => {
 
 const getCachedData = (lat, lng, type = 'current') => {
   try {
+    // Perform cache maintenance before reading
+    performCacheMaintenance();
+    
     const cacheKey = generateCacheKey(lat, lng, type);
     const cached = localStorage.getItem(cacheKey);
     if (!cached) return null;
     
-    const { data, timestamp } = JSON.parse(cached);
+    const parsedCache = JSON.parse(cached);
+    const { data, timestamp } = parsedCache;
     const cacheDate = new Date(timestamp);
     const currentDate = new Date();
     
     // Check if cache is from the same calendar day (local timezone)
     // Cache expires at midnight and refreshes for the new day
     if (isSameCalendarDay(cacheDate, currentDate)) {
+      // Update last accessed time
+      const updatedCache = {
+        ...parsedCache,
+        lastAccessed: Date.now()
+      };
+      
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(updatedCache));
+      } catch (updateError) {
+        console.warn('Could not update last accessed time:', updateError);
+      }
+      
+      // Decompress data if needed
+      const decompressedData = decompressWeatherData(data);
+      
       console.log(`Using cached ${type} weather data for ${lat}, ${lng} (cached on ${cacheDate.toLocaleDateString()})`);
-      return { data, timestamp };
+      return { data: decompressedData, timestamp };
     } else {
       console.log(`${type} cache expired (cached on ${cacheDate.toLocaleDateString()}, now ${currentDate.toLocaleDateString()}), will fetch fresh data`);
       localStorage.removeItem(cacheKey);
@@ -394,19 +675,99 @@ const getCachedData = (lat, lng, type = 'current') => {
 
 const setCachedData = (data, lat, lng, type = 'current') => {
   try {
+    // Perform cache maintenance before writing
+    performCacheMaintenance();
+    
     const cacheKey = generateCacheKey(lat, lng, type);
     const now = new Date();
+    
+    // Compress data if it's large enough
+    let dataToStore = data;
+    const dataString = JSON.stringify(data);
+    const dataSize = getStringSize(dataString);
+    
+    if (dataSize > CACHE_CONFIG.COMPRESSION_THRESHOLD) {
+      dataToStore = compressWeatherData(data);
+      console.log(`Compressing ${type} data: ${(dataSize / 1024).toFixed(1)}KB -> ${(getStringSize(JSON.stringify(dataToStore)) / 1024).toFixed(1)}KB`);
+    }
+    
     const cacheObject = {
-      data,
-      timestamp: now.getTime(), // Store timestamp for date comparison
-      cacheDate: now.toLocaleDateString(), // Human-readable cache date for debugging
+      data: dataToStore,
+      timestamp: now.getTime(),
+      lastAccessed: now.getTime(),
+      cacheDate: now.toLocaleDateString(),
       location: { lat, lng },
-      type: type
+      type: type,
+      compressed: dataToStore !== data
     };
-    localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
-    console.log(`${type} weather data cached successfully for ${lat}, ${lng} on ${now.toLocaleDateString()}`);
+    
+    const cacheString = JSON.stringify(cacheObject);
+    const cacheSize = getStringSize(cacheString);
+    
+    // Check if this entry is too large
+    if (cacheSize > CACHE_CONFIG.MAX_ENTRY_SIZE) {
+      console.warn(`Cache entry too large (${(cacheSize / 1024).toFixed(1)}KB), skipping cache for ${cacheKey}`);
+      return;
+    }
+    
+    // Check if cache operation is safe
+    const safetyCheck = isCacheOperationSafe(cacheSize);
+    if (!safetyCheck.safe) {
+      console.warn(`Cache operation would exceed quota (${safetyCheck.utilizationPercent.toFixed(1)}%), performing aggressive cleanup`);
+      
+      // Perform aggressive cleanup
+      const targetSize = CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE * 0.5; // Target 50% of max
+      evictLRUEntries(targetSize);
+      
+      // Re-check safety
+      const recheckSafety = isCacheOperationSafe(cacheSize);
+      if (!recheckSafety.safe) {
+        console.warn(`Still unsafe after cleanup, skipping cache for ${cacheKey}`);
+        return;
+      }
+    }
+    
+    localStorage.setItem(cacheKey, cacheString);
+    console.log(`${type} weather data cached successfully for ${lat}, ${lng} (${(cacheSize / 1024).toFixed(1)}KB)`);
+    
   } catch (error) {
-    console.warn('Error caching data:', error);
+    if (error.name === 'QuotaExceededError') {
+      console.error('localStorage quota exceeded, performing emergency cleanup');
+      
+      // Emergency cleanup - remove half of all cache entries
+      const entries = getCacheEntries();
+      const entriesToRemove = Math.ceil(entries.length / 2);
+      
+      entries.sort((a, b) => a.lastAccessed - b.lastAccessed);
+      for (let i = 0; i < entriesToRemove && i < entries.length; i++) {
+        try {
+          localStorage.removeItem(entries[i].key);
+          console.log(`Emergency cleanup: removed ${entries[i].key}`);
+        } catch (cleanupError) {
+          console.warn(`Error during emergency cleanup:`, cleanupError);
+        }
+      }
+      
+      // Try to cache again after cleanup
+      try {
+        const cacheObject = {
+          data: compressWeatherData(data), // Force compression in emergency
+          timestamp: Date.now(),
+          lastAccessed: Date.now(),
+          cacheDate: new Date().toLocaleDateString(),
+          location: { lat, lng },
+          type: type,
+          compressed: true
+        };
+        
+        localStorage.setItem(generateCacheKey(lat, lng, type), JSON.stringify(cacheObject));
+        console.log(`${type} weather data cached after emergency cleanup`);
+      } catch (retryError) {
+        console.error('Failed to cache even after emergency cleanup:', retryError);
+      }
+    } else {
+      console.warn('Error caching data:', error);
+    }
   }
 };
 
@@ -1134,4 +1495,63 @@ export const getPrecipitationChance = (precipitation, cloudCover) => {
   if (cloudCover > 70) return Math.min(40, cloudCover * 0.4);
   if (cloudCover > 40) return Math.min(20, cloudCover * 0.2);
   return Math.max(0, cloudCover * 0.1);
+};
+
+// --- CACHE HEALTH MONITORING EXPORTS ---
+// Export cache health monitoring functions for use in components
+export const getCacheHealth = () => {
+  try {
+    const totalSize = getTotalCacheSize();
+    const entries = getCacheEntries();
+    const utilizationPercent = (totalSize / CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE) * 100;
+    
+    return {
+      totalSize,
+      totalSizeKB: (totalSize / 1024).toFixed(1),
+      maxSize: CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE,
+      maxSizeKB: (CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE / 1024).toFixed(1),
+      utilizationPercent: utilizationPercent.toFixed(1),
+      entryCount: entries.length,
+      maxEntries: CACHE_CONFIG.MAX_CACHE_ENTRIES,
+      isHealthy: utilizationPercent < 80 && entries.length < CACHE_CONFIG.MAX_CACHE_ENTRIES,
+      needsCleanup: utilizationPercent > 90 || entries.length > CACHE_CONFIG.MAX_CACHE_ENTRIES,
+      entries: entries.map(entry => ({
+        key: entry.key,
+        sizeKB: (entry.size / 1024).toFixed(1),
+        type: entry.type,
+        location: entry.location,
+        lastAccessed: new Date(entry.lastAccessed).toLocaleString()
+      }))
+    };
+  } catch (error) {
+    console.error('Error getting cache health:', error);
+    return {
+      totalSize: 0,
+      totalSizeKB: '0.0',
+      maxSize: CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE,
+      maxSizeKB: (CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE / 1024).toFixed(1),
+      utilizationPercent: '0.0',
+      entryCount: 0,
+      maxEntries: CACHE_CONFIG.MAX_CACHE_ENTRIES,
+      isHealthy: true,
+      needsCleanup: false,
+      entries: [],
+      error: error.message
+    };
+  }
+};
+
+// Export cache maintenance function for manual cleanup
+export const performManualCacheMaintenance = () => {
+  return performCacheMaintenance();
+};
+
+// Export function to get cache configuration
+export const getCacheConfig = () => {
+  return {
+    maxTotalSizeMB: (CACHE_CONFIG.MAX_TOTAL_CACHE_SIZE / (1024 * 1024)).toFixed(1),
+    maxEntrySizeMB: (CACHE_CONFIG.MAX_ENTRY_SIZE / (1024 * 1024)).toFixed(1),
+    maxEntries: CACHE_CONFIG.MAX_CACHE_ENTRIES,
+    compressionThresholdKB: (CACHE_CONFIG.COMPRESSION_THRESHOLD / 1024).toFixed(1)
+  };
 };

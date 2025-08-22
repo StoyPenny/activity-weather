@@ -141,11 +141,6 @@ const DaySelector = ({
             </button>
           );
         })}
-        {/* {availableDates.length > 10 && (
-          <span className="px-2 py-1 text-xs text-gray-400 dark:text-gray-500">
-            +{availableDates.length - 10} more
-          </span>
-        )} */}
       </div>
     </Card>
   );
