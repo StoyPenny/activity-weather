@@ -16,7 +16,7 @@ import CustomizationModal from "./components/CustomizationModal";
 import WeatherSummary from "./components/WeatherSummary";
 import WeatherChart from "./components/WeatherChart";
 import DaySelector from "./components/DaySelector";
-import { RefreshCw, MapPin, Settings, X } from 'lucide-react';
+import { RefreshCw, MapPin, Settings, MapPinPen, X } from 'lucide-react';
 
 function App() {
   // Current weather data (always today's current conditions)
@@ -325,78 +325,45 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <main className="container mx-auto px-2 sm:px-4 py-8 sm:px-6 lg:px-8">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-white mb-4">
-            Hourly Activity Planner
-          </h1>
-          <div className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-4">
-            <p className="mb-2">Full-day activity ratings for</p>
-            {locations.length > 0 && (
-              <div className="flex flex-wrap gap-2 justify-center">
-                {locations.map((loc, idx) => (
-                  <div key={idx} className="relative group">
-                    <button
-                      onClick={() => setActiveLocationIndex(idx)}
-                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium ${
-                        idx === activeLocationIndex
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50'
-                      }`}
-                    >
-                      <MapPin className="w-4 h-4" />
-                      {loc.name}
-                    </button>
-                    {/* Remove button - only show on hover */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveLocation(idx);
-                      }}
-                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                      title={`Remove ${loc.name}`}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={handleShowLocationInput}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-medium"
-                >
-                  + Add Location
-                </button>
-              </div>
-            )}
-          </div>
-
+      
+      <nav className='container mx-auto flex justify-between gap-2 py-3'>
+        
+        <div className='flex gap-2 items-start sm:px-4'>
           
+          <div className="flex">Date</div>
+          
+          {locations.length > 0 && (
+            <div className="flex gap-2 justify-center items-start">
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600 dark:text-blue-400 pointer-events-none z-10" />
+                <select
+                  value={activeLocationIndex}
+                  onChange={(e) => setActiveLocationIndex(parseInt(e.target.value))}
+                  className="inline-flex items-center gap-1 pl-10 pr-2 py-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                >
+                  {locations.map((loc, idx) => (
+                    <option key={idx} value={idx}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleShowLocationInput}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-medium"
+              >
+                <MapPinPen className="w-4 h-4" />
+              +/- Locations
+              </button>
+            </div>
+          )}
 
-          {/* App Customization */}
-          <div className="flex items-center justify-center gap-4 mb-6 text-sm text-gray-500 dark:text-gray-400">
-            <button
-              onClick={toggleUnitPreference}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              title="Toggle unit preference"
-            >
-              {unitPreference === 'metric' ? '°C' : '°F'}
-            </button>
-            <button
-              onClick={handleShowCustomization}
-              className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              title="Customize activity scoring"
-            >
-              <Settings className="w-4 h-4" /> Customize
-            </button>
-          </div>
+        </div>
 
-          {/* Data freshness and refresh controls */}          
-          <div className="flex items-center justify-center flex-col gap-2 text-sm text-gray-500 dark:text-gray-400">
-            {lastUpdated && (
-              <span>
-                Last updated: {formatTimestamp(lastUpdated)}
-              </span>
-            )}
+        <div className='flex gap-2 justify-end items-start'>
+          
+          <div className="flex flex-col flex-wrap items-center">
+            
             {quotaExceeded ? (
               <div className="flex items-center gap-1 px-3 py-1 rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
                 <span className="text-sm font-medium">Calls Exhausted</span>
@@ -410,7 +377,7 @@ function App() {
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 text-xs px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Refresh weather data"
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -422,9 +389,35 @@ function App() {
                 )}
               </button>
             )}
-          </div>
 
-        </header>
+            {lastUpdated && (
+              <div className='text-[0.6rem] mt-1 text-gray-500 dark:text-gray-400'>
+                Updated: {formatTimestamp(lastUpdated)}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3 justify-between">
+            <button
+              onClick={toggleUnitPreference}
+              className="flex items-center gap-1 px-3 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Toggle unit preference"
+            >
+              {unitPreference === 'metric' ? '°C' : '°F'}
+            </button>
+            <button
+              onClick={handleShowCustomization}
+              className="flex items-center gap-1 px-3 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Customize activity scoring"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        
+      </nav>
+
+
+      <main className="container mx-auto pb-6">
 
         {loading && !needsInitialLocation && (
           <div className="flex flex-col justify-center items-center h-64">
@@ -456,21 +449,20 @@ function App() {
           <WeatherSummary
             hourlyData={currentWeatherData}
             unitPreference={unitPreference}
-            activeLocation={locations[activeLocationIndex]}
           />
         )}
 
         
 
         {/* Weather Chart - Shows selected day data */}
-        {selectedDayData && !loading && (
+        {/* {selectedDayData && !loading && (
           <WeatherChart
             hourlyData={selectedDayData}
             unitPreference={unitPreference}
             activeLocation={locations[activeLocationIndex]}
             selectedDate={selectedForecastDate}
           />
-        )}
+        )} */}
 
         {/* Day Selector - Only show when forecast data is available */}
         {forecastData && !loading && (
@@ -484,18 +476,18 @@ function App() {
 
         {/* Activity Timeline Cards - Shows selected day ratings */}
         {selectedDayRatings && (
-          <div className="grid gap-6 max-w-4xl mx-auto">
+          <div className="flex flex-wrap">
             {Object.entries(selectedDayRatings).map(([activity, hourlyRatings]) => (
               <ActivityTimelineCard
                 key={activity}
                 title={activity}
                 hourlyRatings={hourlyRatings}
-                activeLocation={locations[activeLocationIndex]}
-                selectedDate={selectedForecastDate}
               />
             ))}
           </div>
         )}
+
+        
 
         {/* No data message for selected day */}
         {forecastData && selectedForecastDate && !selectedDayData && !loading && !forecastLoading && (
@@ -576,4 +568,3 @@ function App() {
 }
 
 export default App;
-

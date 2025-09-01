@@ -8,7 +8,7 @@ import {
 } from '../lib/weather';
 import { getParameterUnits } from '../lib/settings';
 
-const WeatherSummary = ({ hourlyData, unitPreference = 'metric', activeLocation = null }) => {
+const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
   if (!hourlyData || hourlyData.length === 0) {
     return null;
   }
@@ -90,15 +90,15 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric', activeLocation 
 
   return (
     <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-gray-800 shadow-lg">
-      <div className="mb-4">
+      {/* <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
           <span className="inline-block w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
-          Current Weather Conditions {activeLocation ? `- ${activeLocation.name}` : ''}
+          Current Weather Conditions
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Live weather data for today - always shows current conditions regardless of forecast day selection
         </p>
-      </div>
+      </div> */}
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {weatherItems.map((item, index) => {
