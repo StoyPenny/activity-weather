@@ -270,37 +270,71 @@ const fetchAstronomyData = async (lat, lng, date = new Date()) => {
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   });
 
+  console.log(`🌅 USNO API Request: ${USNO_BASE_URL}?${params.toString()}`);
+  console.log(`📍 Location: ${lat}, ${lng} | Date: ${dateStr} | Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+
   const response = await fetch(`${USNO_BASE_URL}?${params}`);
 
   if (!response.ok) {
+    console.error(`❌ USNO API HTTP Error: ${response.status} ${response.statusText}`);
     throw new Error(`US Naval Observatory API error: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
 
   // Debug: Log the actual API response structure
-  console.log('USNO API Response:', data);
+  console.log('🔍 USNO API Full Response:', JSON.stringify(data, null, 2));
 
-  // Transform the data to a more usable format
-  // USNO API returns data in properties.data structure
+  // The USNO API structure might be different than expected
+  // Let's check multiple possible structures
+  let sunData = null;
+  let moonData = null;
+
+  // Check different possible API response structures
+  if (data.properties?.data) {
+    // Structure: data.properties.data.sun/moon
+    sunData = data.properties.data.sun;
+    moonData = data.properties.data.moon;
+    console.log('📊 Using properties.data structure');
+  } else if (data.data) {
+    // Structure: data.data.sun/moon
+    sunData = data.data.sun;
+    moonData = data.data.moon;
+    console.log('📊 Using data structure');
+  } else if (data.sun || data.moon) {
+    // Structure: data.sun/moon directly
+    sunData = data.sun;
+    moonData = data.moon;
+    console.log('📊 Using direct structure');
+  } else if (data.sundata || data.moondata) {
+    // Alternative naming
+    sunData = data.sundata;
+    moonData = data.moondata;
+    console.log('📊 Using sundata/moondata structure');
+  }
+
+  console.log('🌞 Sun data found:', sunData);
+  console.log('🌙 Moon data found:', moonData);
+
   const transformedData = {
     date: dateStr,
     location: { lat, lng },
     sun: {
-      rise: data.properties?.data?.sun?.rise || null,
-      set: data.properties?.data?.sun?.set || null,
-      transit: data.properties?.data?.sun?.transit || null
+      rise: sunData?.rise || sunData?.sunrise || null,
+      set: sunData?.set || sunData?.sunset || null,
+      transit: sunData?.transit || sunData?.noon || sunData?.solar_noon || null
     },
     moon: {
-      rise: data.properties?.data?.moon?.rise || null,
-      set: data.properties?.data?.moon?.set || null,
-      phase: data.properties?.data?.moon?.phase || null,
-      fraction: data.properties?.data?.moon?.fraction || null
+      rise: moonData?.rise || moonData?.moonrise || null,
+      set: moonData?.set || moonData?.moonset || null,
+      phase: moonData?.phase || null,
+      fraction: moonData?.fraction || moonData?.illumination || null
     },
-    raw: data
+    raw: data,
+    apiSource: 'USNO'
   };
 
-  console.log('Transformed astronomy data:', transformedData);
+  console.log('✅ Transformed astronomy data:', transformedData);
 
   return transformedData;
 };
@@ -460,71 +494,6 @@ const setCachedData = (data, lat, lng, date = new Date()) => {
   }
 };
 
-// --- MOCK ASTRONOMY DATA FOR DEVELOPMENT ---
-// Generate realistic mock astronomy data based on location and date
-const generateMockAstronomyData = (lat, lng, date) => {
-  // Calculate approximate sunrise/sunset times based on latitude and date
-  // This is a simplified calculation - real astronomical calculations are complex
-  const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-  const solarDeclination = 23.45 * Math.sin((360/365) * (dayOfYear - 81) * Math.PI/180);
-
-  // Approximate equation of time (simplified)
-  const equationOfTime = 4 * Math.sin(2 * (dayOfYear - 81) * Math.PI/180);
-
-  // Calculate sunrise/sunset hour angle
-  const latRad = lat * Math.PI/180;
-  const declRad = solarDeclination * Math.PI/180;
-  const hourAngle = Math.acos(-Math.tan(latRad) * Math.tan(declRad)) * 180/Math.PI;
-
-  // Solar noon time (simplified)
-  const solarNoon = 12 - equationOfTime/60;
-
-  // Sunrise and sunset times
-  const sunriseOffset = hourAngle / 15; // 15 degrees per hour
-  const sunsetOffset = hourAngle / 15;
-
-  const sunriseHour = Math.max(5, solarNoon - sunriseOffset);
-  const sunsetHour = Math.min(19, solarNoon + sunsetOffset);
-
-  // Create sunrise/sunset times
-  const sunrise = new Date(date);
-  sunrise.setHours(Math.floor(sunriseHour), Math.floor((sunriseHour % 1) * 60), 0, 0);
-
-  const sunset = new Date(date);
-  sunset.setHours(Math.floor(sunsetHour), Math.floor((sunsetHour % 1) * 60), 0, 0);
-
-  const solarNoonTime = new Date(date);
-  solarNoonTime.setHours(Math.floor(solarNoon), Math.floor((solarNoon % 1) * 60), 0, 0);
-
-  // Calculate moon phase (simplified lunar cycle)
-  const daysSinceNewMoon = (dayOfYear % 29.5); // Approximate lunar cycle
-  const moonFraction = (daysSinceNewMoon / 29.5) * 2;
-  const moonPhase = moonFraction > 1 ? 2 - moonFraction : moonFraction;
-
-  // Moon rise/set times (simplified - typically opposite to sun)
-  const moonrise = new Date(date);
-  moonrise.setHours(Math.floor((sunsetHour + 2) % 24), Math.floor(((sunsetHour + 2) % 1) * 60), 0, 0);
-
-  const moonset = new Date(date);
-  moonset.setHours(Math.floor((sunriseHour + 2) % 24), Math.floor(((sunriseHour + 2) % 1) * 60), 0, 0);
-
-  return {
-    date: date.toISOString().split('T')[0],
-    location: { lat, lng },
-    sun: {
-      rise: sunrise.toTimeString().slice(0, 5), // HH:MM format
-      set: sunset.toTimeString().slice(0, 5),
-      transit: solarNoonTime.toTimeString().slice(0, 5)
-    },
-    moon: {
-      rise: moonrise.toTimeString().slice(0, 5),
-      set: moonset.toTimeString().slice(0, 5),
-      phase: moonPhase,
-      fraction: moonPhase
-    },
-    isMockData: true
-  };
-};
 
 // --- MAIN FETCH FUNCTION WITH CACHING AND FALLBACK ---
 export const fetchAstronomyDataCached = async (lat, lng, date = new Date(), forceRefresh = false) => {
@@ -533,34 +502,74 @@ export const fetchAstronomyDataCached = async (lat, lng, date = new Date(), forc
     throw new Error('Invalid coordinates: lat and lng must be numbers');
   }
 
+  console.log(`🔍 fetchAstronomyDataCached called with: lat=${lat}, lng=${lng}, date=${date.toISOString().split('T')[0]}, forceRefresh=${forceRefresh}`);
+
   // Check cache first unless force refresh is requested
   if (!forceRefresh) {
     const cached = getCachedData(lat, lng, date);
     if (cached) {
+      console.log(`📦 Returning cached astronomy data (source: ${cached.data.apiSource || 'unknown'})`);
       return cached.data;
     }
   }
 
   try {
-    console.log(`Attempting to fetch astronomy data from US Naval Observatory API for ${lat}, ${lng} on ${date.toISOString().split('T')[0]}...`);
+    console.log(`🌐 Attempting to fetch astronomy data from US Naval Observatory API for ${lat}, ${lng} on ${date.toISOString().split('T')[0]}...`);
     const liveData = await fetchAstronomyData(lat, lng, date);
-    console.log('Successfully fetched astronomy data');
+    console.log('✅ Successfully fetched astronomy data from USNO API');
 
     // Cache the fresh data
     setCachedData(liveData, lat, lng, date);
 
     return liveData;
   } catch (error) {
-    console.warn('Failed to fetch astronomy data from API, using mock data:', error.message);
+    console.error('❌ Failed to fetch astronomy data from API:', error.message);
+    
+    // Return error data instead of mock data
+    const errorData = {
+      date: date.toISOString().split('T')[0],
+      location: { lat, lng },
+      sun: {
+        rise: null,
+        set: null,
+        transit: null
+      },
+      moon: {
+        rise: null,
+        set: null,
+        phase: null,
+        fraction: null
+      },
+      error: `Failed to fetch astronomy data: ${error.message}`,
+      apiSource: 'ERROR'
+    };
 
-    // Generate mock data for development
-    const mockData = generateMockAstronomyData(lat, lng, date);
-    console.log('Generated mock astronomy data:', mockData);
+    return errorData;
+  }
+};
 
-    // Cache the mock data
-    setCachedData(mockData, lat, lng, date);
+// --- DEBUGGING AND TESTING FUNCTIONS ---
+// Force refresh astronomy data and clear cache
+export const forceRefreshAstronomyData = async (lat, lng, date = new Date()) => {
+  console.log('🔄 Force refreshing astronomy data...');
+  
+  // Clear existing cache
+  clearAstronomyCache(lat, lng, date);
+  
+  // Fetch fresh data
+  return await fetchAstronomyDataCached(lat, lng, date, true);
+};
 
-    return mockData;
+// Test the USNO API directly without caching
+export const testUSNOAPI = async (lat, lng, date = new Date()) => {
+  console.log('🧪 Testing USNO API directly...');
+  try {
+    const result = await fetchAstronomyData(lat, lng, date);
+    console.log('🎯 Direct USNO API test result:', result);
+    return result;
+  } catch (error) {
+    console.error('💥 Direct USNO API test failed:', error);
+    throw error;
   }
 };
 
