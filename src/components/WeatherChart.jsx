@@ -10,17 +10,19 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { Card } from './ui/card';
-import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain } from 'lucide-react';
+import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain, Waves } from 'lucide-react';
 import { getParameterUnits } from '../lib/settings';
 
-const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate }) => {
+const WeatherChart = ({ hourlyData, unitPreference }) => {
   const [visibleMetrics, setVisibleMetrics] = useState({
     temperature: true,
     humidity: true,
-    precipitation: true,
+    // precipitation: false,
+    chanceOfRain: true,
     windSpeed: true,
-    pressure: true,
-    visibility: false,
+    pressure: false,
+    visibility: true,
+    waveHeight: false,
   });
 
   const getUnit = useMemo(() => {
@@ -43,12 +45,19 @@ const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate
         color: '#3b82f6',
         yAxisId: 'percentages',
       },
+      // {
+      //   key: 'precipitation',
+      //   label: `Precipitation (${getUnit('precipitation').unit})`,
+      //   icon: CloudRain,
+      //   color: '#06b6d4',
+      //   yAxisId: 'integers',
+      // },
       {
-        key: 'precipitation',
-        label: `Precipitation (${getUnit('precipitation').unit})`,
+        key: 'chanceOfRain',
+        label: 'Chance of Rain (%)',
         icon: CloudRain,
-        color: '#06b6d4',
-        yAxisId: 'integers',
+        color: '#0ea5e9',
+        yAxisId: 'percentages',
       },
       {
         key: 'windSpeed',
@@ -71,6 +80,13 @@ const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate
         color: '#8b5cf6',
         yAxisId: 'integers',
       },
+      {
+        key: 'waveHeight',
+        label: `Wave Height (${getUnit('waveHeight').unit})`,
+        icon: Waves,
+        color: '#06b6d4',
+        yAxisId: 'integers',
+      },
     ],
     [getUnit]
   );
@@ -91,10 +107,19 @@ const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate
 
       const humidity = Math.round(hour.humidity?.sg || 0);
 
-      const precipUnit = getUnit('precipitation');
-      const precipitation = Math.round(
-        precipUnit.convert(hour.precipitation?.sg || 0)
-      );
+      // const precipUnit = getUnit('precipitation');
+      // const precipitation = Math.round(
+      //   precipUnit.convert(hour.precipitation?.sg || 0)
+      // );
+
+      // Chance of rain: use 'rain' field if available, otherwise calculate from precipitation and cloud cover
+      const chanceOfRain = Math.round(hour.rain?.sg || Math.min(100, Math.max(0,
+        hour.precipitation?.sg > 0.5 ? 60 + (hour.cloudCover?.sg || 0) * 0.3 :
+        hour.precipitation?.sg > 0.1 ? 30 + (hour.cloudCover?.sg || 0) * 0.4 :
+        (hour.cloudCover?.sg || 0) > 70 ? (hour.cloudCover?.sg || 0) * 0.4 :
+        (hour.cloudCover?.sg || 0) > 40 ? (hour.cloudCover?.sg || 0) * 0.2 :
+        (hour.cloudCover?.sg || 0) * 0.1
+      )));
 
       const windUnit = getUnit('windSpeed');
       const windSpeed = Math.round(windUnit.convert(hour.windSpeed?.sg || 0));
@@ -109,14 +134,21 @@ const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate
         visibilityUnit.convert(hour.visibility?.sg || 10)
       );
 
+      const waveHeightUnit = getUnit('waveHeight');
+      const waveHeight = parseFloat(
+        waveHeightUnit.convert(hour.waveHeight?.sg || 0).toFixed(2)
+      );
+
       return {
         time: timeLabel,
         temperature,
         humidity,
-        precipitation,
+        // precipitation,
+        chanceOfRain,
         windSpeed,
         pressure,
         visibility,
+        waveHeight,
       };
     });
   }, [hourlyData, getUnit]);
@@ -149,19 +181,11 @@ const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate
   };
 
   return (
-    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-gray-800 shadow-lg">
+    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-blue-950/20 dark:border-blue-900/50 rounded-lg shadow-lg">
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-          Weather Trends Throughout the Day {activeLocation ? `- ${activeLocation.name}` : ''}
+          24-hour Weather Trends
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-          24-hour weather data visualization for {selectedDate ? selectedDate.toLocaleDateString([], {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }) : 'selected day'}
-        </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
           Toggle metrics below to customize the chart view
         </p>
@@ -209,7 +233,7 @@ const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate
               label={{ value: 'Values', angle: -90, position: 'insideLeft' }}
             />
             
-            {/* Right Y-axis for percentages (humidity, precipitation) */}
+            {/* Right Y-axis for percentages (humidity, chance of rain) */}
             <YAxis 
               yAxisId="percentages"
               orientation="right"

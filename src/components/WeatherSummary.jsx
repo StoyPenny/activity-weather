@@ -1,4 +1,4 @@
-import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain } from 'lucide-react';
+import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain, Waves, Bubbles } from 'lucide-react';
 import { Card } from './ui/card';
 import { 
   getCurrentWeatherData, 
@@ -8,7 +8,7 @@ import {
 } from '../lib/weather';
 import { getParameterUnits } from '../lib/settings';
 
-const WeatherSummary = ({ hourlyData, unitPreference = 'metric', activeLocation = null }) => {
+const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
   if (!hourlyData || hourlyData.length === 0) {
     return null;
   }
@@ -26,16 +26,16 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric', activeLocation 
   
   const humidity = Math.round(currentWeather.humidity?.sg || 0);
 
-  const pressureUnit = getUnit('pressure');
-  const pressure = (currentWeather.pressure?.sg || 1013);
-  const displayPressure = pressureUnit.convert(pressure).toFixed(2);
-
   const windSpeedUnit = getUnit('windSpeed');
   const windSpeed = Math.round(windSpeedUnit.convert(currentWeather.windSpeed?.sg || 0));
   
   const windDir = currentWeather.windDirection?.sg || 0;
   const windDirection = getWindDirection(windDir);
-  
+
+  const waveHeightUnit = getUnit('waveHeight');
+  const waveHeight = currentWeather.waveHeight?.sg || 0;
+
+
   const visibilityUnit = getUnit('visibility');
   const visibility = Math.round(visibilityUnit.convert(currentWeather.visibility?.sg || 10));
 
@@ -53,72 +53,76 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric', activeLocation 
     {
       icon: Thermometer,
       label: 'Temperature',
-      value: `${temp}°${tempUnit.unit.replace('°','')}`,
+      value: temp,
+      unit: tempUnit.unit.replace('°',''),
       subValue: `Feels like ${feelsLike}°${tempUnit.unit.replace('°','')}`
     },
     {
       icon: CloudRain,
       label: 'Precipitation',
-      value: `${precipChance}%`,
+      value: precipChance,
+      unit: '%',
       subValue: precipitation > 0 ? `${precipitation.toFixed(2)} ${precipitationUnit.unit}/h` : 'No rain'
     },
     {
-      icon: Droplets,
+      icon: Bubbles,
       label: 'Humidity',
-      value: `${humidity}%`,
+      value: humidity,
+      unit: '%',
       subValue: humidity > 70 ? 'High' : humidity > 40 ? 'Moderate' : 'Low'
     },
     {
       icon: Wind,
       label: 'Wind',
-      value: `${windSpeed} ${windSpeedUnit.unit}`,
+      value: windSpeed,
+      unit: windSpeedUnit.unit,
       subValue: `${windDirection}`
     },
     {
-      icon: Gauge,
-      label: 'Pressure',
-      value: `${displayPressure} ${pressureUnit.unit}`,
-      subValue: pressure > 1022 ? 'High' : pressure > 1009 ? 'Normal' : 'Low'
+      icon: Waves,
+      label: 'Wave Height',
+      value: waveHeight,
+      unit: waveHeightUnit.unit,
+      subValue: waveHeight > 5 ? 'Great' : waveHeight > 3 ? 'Normal' : 'Low'
     },
     {
       icon: Eye,
       label: 'Visibility',
-      value: `${visibility} ${visibilityUnit.unit}`,
+      value: visibility,
+      unit: visibilityUnit.unit,
       subValue: visibility > 5 ? 'Excellent' : visibility > 3 ? 'Good' : 'Poor'
     }
   ];
 
   return (
-    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-gray-800 shadow-lg">
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-          <span className="inline-block w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
-          Current Weather Conditions {activeLocation ? `- ${activeLocation.name}` : ''}
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Live weather data for today - always shows current conditions regardless of forecast day selection
-        </p>
-      </div>
+    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-blue-950/20 dark:border-blue-900/50 rounded-lg shadow-lg">
+      
+      <h2 className="text-xl text-center text-gray-900 dark:text-white dark:text-opacity-50 mb-2">
+        Current Conditions
+      </h2>
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {weatherItems.map((item, index) => {
           const IconComponent = item.icon;
           return (
-            <div key={index} className="flex flex-col items-center text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-              <IconComponent className="w-6 h-6 text-blue-500 dark:text-blue-400 mb-2" />
-              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
-                {item.label}
-              </div>
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">
+            <div key={index} className="flex flex-col items-center text-center p-3 rounded-lg bg-gray-50 dark:bg-blue-900/30 relative">
+              <IconComponent className="w-8 h-8 text-blue-500 dark:text-blue-400 dark:opacity-50 mb-1" />
+              
+              <div className="text-5xl font-bold mb-1 text-gray-900 dark:text-white">
                 {item.value}
+                <span className="text-xl font-normal ml-1">{item.unit}</span>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-500">
+              <div className="text-xs text-gray-700 dark:text-gray-500">
                 {item.subValue}
+              </div>
+              <div className="text-[0.6rem] text-gray-400 dark:text-gray-400 mb-1">
+                {item.label}
               </div>
             </div>
           );
         })}
       </div>
+
     </Card>
   );
 };
