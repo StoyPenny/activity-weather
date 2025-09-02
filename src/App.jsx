@@ -14,6 +14,7 @@ import ActivityTimelineCard from "./components/ActivityTimelineCard";
 import LocationInput from "./components/LocationInput";
 import CustomizationModal from "./components/CustomizationModal";
 import WeatherSummary from "./components/WeatherSummary";
+import WeeklyForecast from "./components/WeeklyForecast";
 import WeatherChart from "./components/WeatherChart";
 
 import { RefreshCw, MapPin, Settings, MapPinPen, X, ChevronLeft, ChevronRight, Calendar, Sun, Moon } from 'lucide-react';
@@ -586,7 +587,14 @@ function App() {
           />
         )}
 
-        
+        {/* 7-Day Forecast - Shows weekly weather outlook */}
+        {forecastData && !loading && (
+          <WeeklyForecast
+            forecastData={forecastData}
+            unitPreference={unitPreference}
+            onDaySelect={handleDateChange}
+          />
+        )}
 
         {/* Weather Chart - Shows selected day data */}
         {selectedDayData && !loading && (
