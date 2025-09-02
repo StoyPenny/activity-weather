@@ -10,18 +10,19 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { Card } from './ui/card';
-import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain } from 'lucide-react';
+import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain, Waves } from 'lucide-react';
 import { getParameterUnits } from '../lib/settings';
 
 const WeatherChart = ({ hourlyData, unitPreference }) => {
   const [visibleMetrics, setVisibleMetrics] = useState({
     temperature: true,
     humidity: true,
-    precipitation: false,
+    // precipitation: false,
     chanceOfRain: true,
     windSpeed: true,
     pressure: false,
     visibility: true,
+    waveHeight: false,
   });
 
   const getUnit = useMemo(() => {
@@ -44,13 +45,13 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         color: '#3b82f6',
         yAxisId: 'percentages',
       },
-      {
-        key: 'precipitation',
-        label: `Precipitation (${getUnit('precipitation').unit})`,
-        icon: CloudRain,
-        color: '#06b6d4',
-        yAxisId: 'integers',
-      },
+      // {
+      //   key: 'precipitation',
+      //   label: `Precipitation (${getUnit('precipitation').unit})`,
+      //   icon: CloudRain,
+      //   color: '#06b6d4',
+      //   yAxisId: 'integers',
+      // },
       {
         key: 'chanceOfRain',
         label: 'Chance of Rain (%)',
@@ -79,6 +80,13 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         color: '#8b5cf6',
         yAxisId: 'integers',
       },
+      {
+        key: 'waveHeight',
+        label: `Wave Height (${getUnit('waveHeight').unit})`,
+        icon: Waves,
+        color: '#06b6d4',
+        yAxisId: 'integers',
+      },
     ],
     [getUnit]
   );
@@ -99,10 +107,10 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
 
       const humidity = Math.round(hour.humidity?.sg || 0);
 
-      const precipUnit = getUnit('precipitation');
-      const precipitation = Math.round(
-        precipUnit.convert(hour.precipitation?.sg || 0)
-      );
+      // const precipUnit = getUnit('precipitation');
+      // const precipitation = Math.round(
+      //   precipUnit.convert(hour.precipitation?.sg || 0)
+      // );
 
       // Chance of rain: use 'rain' field if available, otherwise calculate from precipitation and cloud cover
       const chanceOfRain = Math.round(hour.rain?.sg || Math.min(100, Math.max(0,
@@ -126,15 +134,21 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         visibilityUnit.convert(hour.visibility?.sg || 10)
       );
 
+      const waveHeightUnit = getUnit('waveHeight');
+      const waveHeight = parseFloat(
+        waveHeightUnit.convert(hour.waveHeight?.sg || 0).toFixed(2)
+      );
+
       return {
         time: timeLabel,
         temperature,
         humidity,
-        precipitation,
+        // precipitation,
         chanceOfRain,
         windSpeed,
         pressure,
         visibility,
+        waveHeight,
       };
     });
   }, [hourlyData, getUnit]);
