@@ -13,14 +13,14 @@ import { Card } from './ui/card';
 import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain } from 'lucide-react';
 import { getParameterUnits } from '../lib/settings';
 
-const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate }) => {
+const WeatherChart = ({ hourlyData, unitPreference }) => {
   const [visibleMetrics, setVisibleMetrics] = useState({
     temperature: true,
     humidity: true,
     precipitation: true,
     windSpeed: true,
     pressure: true,
-    visibility: false,
+    visibility: true,
   });
 
   const getUnit = useMemo(() => {
@@ -149,19 +149,11 @@ const WeatherChart = ({ hourlyData, unitPreference, activeLocation, selectedDate
   };
 
   return (
-    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-gray-800 shadow-lg">
+    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-blue-950/20 dark:border-blue-900/50 rounded-lg shadow-lg">
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-          Weather Trends Throughout the Day {activeLocation ? `- ${activeLocation.name}` : ''}
+          24-hour Weather Trends
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-          24-hour weather data visualization for {selectedDate ? selectedDate.toLocaleDateString([], {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }) : 'selected day'}
-        </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
           Toggle metrics below to customize the chart view
         </p>

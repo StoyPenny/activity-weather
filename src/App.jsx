@@ -9,14 +9,14 @@ import {
   getAvailableForecastDates
 } from "./lib/weather";
 import { getCurrentLocationOrDefault, saveLocation, removeLocationByIndex } from "./lib/location";
-import { getUnitPreference, setUnitPreference } from "./lib/settings";
+import { getUnitPreference, setUnitPreference, getThemePreference, setThemePreference } from "./lib/settings";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
 import LocationInput from "./components/LocationInput";
 import CustomizationModal from "./components/CustomizationModal";
 import WeatherSummary from "./components/WeatherSummary";
 import WeatherChart from "./components/WeatherChart";
-import DaySelector from "./components/DaySelector";
-import { RefreshCw, MapPin, Settings, MapPinPen, X } from 'lucide-react';
+
+import { RefreshCw, MapPin, Settings, MapPinPen, X, ChevronLeft, ChevronRight, Calendar, Sun, Moon } from 'lucide-react';
 
 function App() {
   // Current weather data (always today's current conditions)
@@ -42,6 +42,7 @@ function App() {
   const [apiQuota, setApiQuota] = useState(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [unitPreference, setUnitPreferenceState] = useState('metric');
+  const [themePreference, setThemePreferenceState] = useState('light');
   const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
   const [locationToRemove, setLocationToRemove] = useState(null);
 
@@ -221,6 +222,24 @@ function App() {
     }
   };
 
+  // Toggle theme preference between light and dark
+  const toggleThemePreference = () => {
+    try {
+      const newTheme = themePreference === 'light' ? 'dark' : 'light';
+      setThemePreferenceState(newTheme);
+      setThemePreference(newTheme);
+
+      // Apply theme to document
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch (err) {
+      console.warn('Failed to toggle theme preference:', err);
+    }
+  };
+
   // Handle location removal
   const handleRemoveLocation = (indexToRemove) => {
     setLocationToRemove({ index: indexToRemove, name: locations[indexToRemove].name });
@@ -301,6 +320,23 @@ function App() {
     }
   }, []);
 
+  // Initialize theme preference
+  useEffect(() => {
+    try {
+      const theme = getThemePreference();
+      setThemePreferenceState(theme);
+
+      // Apply theme to document
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch (err) {
+      console.warn('Failed to load theme preference, using default:', err);
+    }
+  }, []);
+
   // Watch for active location changes and reload weather data
   useEffect(() => {
     if (locations.length > 0 && activeLocationIndex >= 0 && activeLocationIndex < locations.length) {
@@ -323,23 +359,120 @@ function App() {
     });
   };
 
+  const formatDisplayDate = (date) => {
+    if (!date) return '';
+    
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    } else {
+      return date.toLocaleDateString([], { 
+        weekday: 'short'
+      });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-x-hidden">
       
       <nav className='container mx-auto flex justify-between gap-2 py-3'>
         
-        <div className='flex gap-2 items-start sm:px-4'>
-          
-          <div className="flex">Date</div>
-          
-          {locations.length > 0 && (
-            <div className="flex gap-2 justify-center items-start">
+        <div className='flex gap-6 items-start'>
+
+          {forecastData && !loading && (
+            <div className="flex justify-center items-start">
+              <button
+                onClick={() => {
+                  const availableDates = getAvailableForecastDates(forecastData);
+                  const selectedIndex = availableDates.findIndex(date =>
+                    date.toDateString() === selectedForecastDate?.toDateString()
+                  );
+                  if (selectedIndex > 0) {
+                    handleDateChange(availableDates[selectedIndex - 1]);
+                  }
+                }}
+                disabled={(() => {
+                  const availableDates = getAvailableForecastDates(forecastData);
+                  const selectedIndex = availableDates.findIndex(date =>
+                    date.toDateString() === selectedForecastDate?.toDateString()
+                  );
+                  return selectedIndex <= 0;
+                })()}
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-200 dark:bg-blue-950/30 hover:bg-blue-300 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Previous day"
+              >
+                <ChevronLeft className="w-4 h-5 text-blue-600 dark:text-blue-300" />
+              </button>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600 dark:text-blue-400 pointer-events-none z-10" />
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600 dark:text-blue-400 pointer-events-none z-10" />
+                <select
+                  value={(() => {
+                    const availableDates = getAvailableForecastDates(forecastData);
+                    return availableDates.findIndex(date =>
+                      date.toDateString() === selectedForecastDate?.toDateString()
+                    );
+                  })()}
+                  onChange={(e) => {
+                    const availableDates = getAvailableForecastDates(forecastData);
+                    const idx = parseInt(e.target.value);
+                    handleDateChange(availableDates[idx]);
+                  }}
+                  className="inline-flex items-center gap-1 pl-10 pr-2 py-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                >
+                  {(() => {
+                    const availableDates = getAvailableForecastDates(forecastData);
+                    return availableDates.map((date, idx) => (
+                      <option key={idx} value={idx}>
+                        {formatDisplayDate(date)}
+                      </option>
+                    ));
+                  })()}
+                </select>
+              </div>
+              <button
+                onClick={() => {
+                  const availableDates = getAvailableForecastDates(forecastData);
+                  const selectedIndex = availableDates.findIndex(date =>
+                    date.toDateString() === selectedForecastDate?.toDateString()
+                  );
+                  if (selectedIndex < availableDates.length - 1) {
+                    handleDateChange(availableDates[selectedIndex + 1]);
+                  }
+                }}
+                disabled={(() => {
+                  const availableDates = getAvailableForecastDates(forecastData);
+                  const selectedIndex = availableDates.findIndex(date =>
+                    date.toDateString() === selectedForecastDate?.toDateString()
+                  );
+                  return selectedIndex >= availableDates.length - 1;
+                })()}
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-200 dark:bg-blue-950/30 hover:bg-blue-300 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Next day"
+              >
+                <ChevronRight className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+              </button>
+            </div>
+          )}
+
+          {locations.length > 0 && (
+            <div className="flex justify-center items-start">
+              <button
+                onClick={handleShowLocationInput}
+                className="inline-flex items-center gap-2 px-3 py-2 text-xs bg-blue-200 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium"
+              >
+                <MapPinPen className="w-4 h-4" />
+              </button>
+              <div className="relative">
+                {/* <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-600 dark:text-blue-400 pointer-events-none z-10" /> */}
                 <select
                   value={activeLocationIndex}
                   onChange={(e) => setActiveLocationIndex(parseInt(e.target.value))}
-                  className="inline-flex items-center gap-1 pl-10 pr-2 py-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                  className="inline-flex items-center gap-1 pl-4 pr-2 py-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
                 >
                   {locations.map((loc, idx) => (
                     <option key={idx} value={idx}>
@@ -348,13 +481,7 @@ function App() {
                   ))}
                 </select>
               </div>
-              <button
-                onClick={handleShowLocationInput}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-medium"
-              >
-                <MapPinPen className="w-4 h-4" />
-              +/- Locations
-              </button>
+              
             </div>
           )}
 
@@ -391,12 +518,19 @@ function App() {
             )}
 
             {lastUpdated && (
-              <div className='text-[0.6rem] mt-1 text-gray-500 dark:text-gray-400'>
+              <div className='text-[0.55rem] mt-1 text-gray-500 dark:text-gray-400'>
                 Updated: {formatTimestamp(lastUpdated)}
               </div>
             )}
           </div>
           <div className="flex items-center gap-3 justify-between">
+            <button
+              onClick={toggleThemePreference}
+              className="flex items-center gap-1 px-3 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Toggle theme"
+            >
+              {themePreference === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
             <button
               onClick={toggleUnitPreference}
               className="flex items-center gap-1 px-3 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -455,24 +589,14 @@ function App() {
         
 
         {/* Weather Chart - Shows selected day data */}
-        {/* {selectedDayData && !loading && (
+        {selectedDayData && !loading && (
           <WeatherChart
             hourlyData={selectedDayData}
             unitPreference={unitPreference}
-            activeLocation={locations[activeLocationIndex]}
-            selectedDate={selectedForecastDate}
-          />
-        )} */}
-
-        {/* Day Selector - Only show when forecast data is available */}
-        {forecastData && !loading && (
-          <DaySelector
-            availableDates={getAvailableForecastDates(forecastData)}
-            selectedDate={selectedForecastDate}
-            onDateChange={handleDateChange}
-            className="mb-8"
           />
         )}
+
+
 
         {/* Activity Timeline Cards - Shows selected day ratings */}
         {selectedDayRatings && (

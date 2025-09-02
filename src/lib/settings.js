@@ -1,12 +1,13 @@
 // --- SETTINGS MANAGEMENT SYSTEM ---
 const SETTINGS_STORAGE_KEY = 'activity_scoring_settings';
-const SETTINGS_VERSION = 2; // Updated version to handle activity list
+const SETTINGS_VERSION = 3; // Updated version to handle theme preference
 
 // Default settings for all activities and parameters
 const DEFAULT_SETTINGS = {
   version: SETTINGS_VERSION,
   lastUpdated: new Date().toISOString(),
   unitPreference: 'metric', // 'metric' or 'imperial'
+  themePreference: 'light', // 'light' or 'dark'
   activities: [
     'Surfing',
     'Fishing',
@@ -801,6 +802,29 @@ export const getParameterSuggestions = (activityType) => {
     kayaking: ['windSpeed', 'waveHeight', 'currentSpeed', 'waterTemperature'],
     snorkeling: ['waterTemperature', 'waveHeight', 'visibility', 'currentSpeed']
   };
-  
+
   return suggestions[activityType.toLowerCase()] || suggestions.atmospheric;
+};
+
+/**
+ * Get the current theme preference
+ * @returns {string} 'light' or 'dark'
+ */
+export const getThemePreference = () => {
+  const settings = loadSettings();
+  return settings.themePreference || 'light';
+};
+
+/**
+ * Set the theme preference
+ * @param {string} theme - 'light' or 'dark'
+ */
+export const setThemePreference = (theme) => {
+  if (theme !== 'light' && theme !== 'dark') {
+    throw new Error('Theme preference must be "light" or "dark"');
+  }
+
+  const settings = loadSettings();
+  settings.themePreference = theme;
+  saveSettings(settings);
 };
