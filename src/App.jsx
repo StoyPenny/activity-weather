@@ -8,6 +8,8 @@ import {
   filterForecastDataByDate,
   getAvailableForecastDates
 } from "./lib/weather";
+import { fetchAstronomyDataCached } from "./lib/astronomy";
+import { fetchTideDataCached } from "./lib/tides";
 import { getCurrentLocationOrDefault, saveLocation, removeLocationByIndex } from "./lib/location";
 import { getUnitPreference, setUnitPreference, getThemePreference, setThemePreference } from "./lib/settings";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
@@ -16,23 +18,33 @@ import CustomizationModal from "./components/CustomizationModal";
 import WeatherSummary from "./components/WeatherSummary";
 import WeeklyForecast from "./components/WeeklyForecast";
 import WeatherChart from "./components/WeatherChart";
+import AstronomicalData from "./components/AstronomicalData";
+import TideData from "./components/TideData";
 
 import { RefreshCw, MapPin, Settings, MapPinPen, X, ChevronLeft, ChevronRight, Calendar, Sun, Moon } from 'lucide-react';
 
 function App() {
   // Current weather data (always today's current conditions)
   const [currentWeatherData, setCurrentWeatherData] = useState(null);
-  
+
   // Forecast data and selected day
   const [forecastData, setForecastData] = useState(null);
   const [selectedForecastDate, setSelectedForecastDate] = useState(new Date());
   const [selectedDayData, setSelectedDayData] = useState(null);
   const [selectedDayRatings, setSelectedDayRatings] = useState(null);
-  
+
+  // Astronomy and tide data
+  const [astronomyData, setAstronomyData] = useState(null);
+  const [tideData, setTideData] = useState(null);
+
   // UI state
   const [loading, setLoading] = useState(true);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [astronomyLoading, setAstronomyLoading] = useState(false);
+  const [tideLoading, setTideLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [astronomyError, setAstronomyError] = useState(null);
+  const [tideError, setTideError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [locations, setLocations] = useState([]); // multiple locations
@@ -74,6 +86,12 @@ function App() {
       
       // Load forecast data (7-10 days)
       await loadForecastData(targetLocation, forceRefresh);
+
+      // Load astronomy and tide data in parallel
+      await Promise.all([
+        loadAstronomyData(targetLocation, forceRefresh),
+        loadTideData(targetLocation, forceRefresh)
+      ]);
       
     } catch (err) {
       // Handle quota exceeded error specially
@@ -94,11 +112,11 @@ function App() {
   const loadForecastData = useCallback(async (location, forceRefresh = false) => {
     try {
       setForecastLoading(true);
-      
+
       // Fetch 10-day forecast data
       const forecast = await fetchForecastData(location.lat, location.lng, 10, forceRefresh);
       setForecastData(forecast);
-      
+
       // Get available dates and set initial selected date to today
       const availableDates = getAvailableForecastDates(forecast);
       if (availableDates.length > 0) {
@@ -106,16 +124,50 @@ function App() {
         const todayDate = availableDates.find(date =>
           date.toDateString() === today.toDateString()
         ) || availableDates[0];
-        
+
         setSelectedForecastDate(todayDate);
         updateSelectedDayData(forecast, todayDate);
       }
-      
+
     } catch (err) {
       console.warn('Failed to load forecast data:', err);
       // Don't set error for forecast failure, just log it
     } finally {
       setForecastLoading(false);
+    }
+  }, []);
+
+  const loadAstronomyData = useCallback(async (location, forceRefresh = false) => {
+    try {
+      setAstronomyLoading(true);
+      setAstronomyError(null);
+
+      // Fetch astronomy data for today
+      const astronomy = await fetchAstronomyDataCached(location.lat, location.lng, new Date(), forceRefresh);
+      setAstronomyData(astronomy);
+
+    } catch (err) {
+      console.warn('Failed to load astronomy data:', err);
+      setAstronomyError('Failed to load astronomical data');
+    } finally {
+      setAstronomyLoading(false);
+    }
+  }, []);
+
+  const loadTideData = useCallback(async (location, forceRefresh = false) => {
+    try {
+      setTideLoading(true);
+      setTideError(null);
+
+      // Fetch tide data for today
+      const tides = await fetchTideDataCached(location.lat, location.lng, new Date(), forceRefresh);
+      setTideData(tides);
+
+    } catch (err) {
+      console.warn('Failed to load tide data:', err);
+      setTideError('Failed to load tide data');
+    } finally {
+      setTideLoading(false);
     }
   }, []);
 
@@ -608,7 +660,7 @@ function App() {
 
         {/* Activity Timeline Cards - Shows selected day ratings */}
         {selectedDayRatings && (
-          <div className="flex flex-wrap ml-[-0.75rem] mr-[-0.75rem]">
+          <div className="flex flex-wrap ml-[-0.75rem] mr-[-0.75rem] mb-8">
             {Object.entries(selectedDayRatings).map(([activity, hourlyRatings]) => (
               <ActivityTimelineCard
                 key={activity}
@@ -619,7 +671,23 @@ function App() {
           </div>
         )}
 
-        
+        {/* Astronomical Data - Shows sun and moon information */}
+        {!loading && (
+          <AstronomicalData
+            astronomyData={astronomyData}
+            loading={astronomyLoading}
+            error={astronomyError}
+          />
+        )}
+
+        {/* Tide Data - Shows tide information */}
+        {!loading && (
+          <TideData
+            tideData={tideData}
+            loading={tideLoading}
+            error={tideError}
+          />
+        )}
 
         {/* No data message for selected day */}
         {forecastData && selectedForecastDate && !selectedDayData && !loading && !forecastLoading && (

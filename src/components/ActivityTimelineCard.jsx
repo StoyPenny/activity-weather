@@ -71,7 +71,7 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
             {title}
           </h3>
           
-          <div class="text-6xl font-bold text-center mb-6">
+          <div className="text-6xl font-bold text-center mb-6">
             {currentRating !== null ? currentRating.toFixed(1) : 'N/A'}
           </div>
 
