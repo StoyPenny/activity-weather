@@ -17,9 +17,10 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
   const [visibleMetrics, setVisibleMetrics] = useState({
     temperature: true,
     humidity: true,
-    precipitation: true,
+    precipitation: false,
+    chanceOfRain: true,
     windSpeed: true,
-    pressure: true,
+    pressure: false,
     visibility: true,
   });
 
@@ -49,6 +50,13 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         icon: CloudRain,
         color: '#06b6d4',
         yAxisId: 'integers',
+      },
+      {
+        key: 'chanceOfRain',
+        label: 'Chance of Rain (%)',
+        icon: CloudRain,
+        color: '#0ea5e9',
+        yAxisId: 'percentages',
       },
       {
         key: 'windSpeed',
@@ -96,6 +104,15 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         precipUnit.convert(hour.precipitation?.sg || 0)
       );
 
+      // Chance of rain: use 'rain' field if available, otherwise calculate from precipitation and cloud cover
+      const chanceOfRain = Math.round(hour.rain?.sg || Math.min(100, Math.max(0,
+        hour.precipitation?.sg > 0.5 ? 60 + (hour.cloudCover?.sg || 0) * 0.3 :
+        hour.precipitation?.sg > 0.1 ? 30 + (hour.cloudCover?.sg || 0) * 0.4 :
+        (hour.cloudCover?.sg || 0) > 70 ? (hour.cloudCover?.sg || 0) * 0.4 :
+        (hour.cloudCover?.sg || 0) > 40 ? (hour.cloudCover?.sg || 0) * 0.2 :
+        (hour.cloudCover?.sg || 0) * 0.1
+      )));
+
       const windUnit = getUnit('windSpeed');
       const windSpeed = Math.round(windUnit.convert(hour.windSpeed?.sg || 0));
 
@@ -114,6 +131,7 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         temperature,
         humidity,
         precipitation,
+        chanceOfRain,
         windSpeed,
         pressure,
         visibility,
@@ -201,7 +219,7 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
               label={{ value: 'Values', angle: -90, position: 'insideLeft' }}
             />
             
-            {/* Right Y-axis for percentages (humidity, precipitation) */}
+            {/* Right Y-axis for percentages (humidity, chance of rain) */}
             <YAxis 
               yAxisId="percentages"
               orientation="right"

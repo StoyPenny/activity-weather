@@ -65,16 +65,15 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
   return (
     <div className='card-wrapper w-1/3 flex-shrink-0 p-3'>
       <Card className="dark:bg-blue-900/20 border dark:border-blue-900/50 rounded-lg shadow-md">
-      
+
         <CardContent>
-
-          <div class="text-6xl font-bold text-center mb-3">
-            {currentRating !== null ? currentRating.toFixed(1) : 'N/A'}
-          </div>
-
-          <h3 className="text-center font-semibold text-xl mb-3 dark:text-blue-100 dark:text-opacity-75">
+          <h3 className="text-center font-semibold text-xl mb-1 dark:text-blue-100 dark:text-opacity-75">
             {title}
           </h3>
+          
+          <div class="text-6xl font-bold text-center mb-6">
+            {currentRating !== null ? currentRating.toFixed(1) : 'N/A'}
+          </div>
 
           <div className="flex space-x-1 w-full">
             

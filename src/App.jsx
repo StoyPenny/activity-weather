@@ -600,7 +600,7 @@ function App() {
 
         {/* Activity Timeline Cards - Shows selected day ratings */}
         {selectedDayRatings && (
-          <div className="flex flex-wrap">
+          <div className="flex flex-wrap ml-[-0.75rem] mr-[-0.75rem]">
             {Object.entries(selectedDayRatings).map(([activity, hourlyRatings]) => (
               <ActivityTimelineCard
                 key={activity}
