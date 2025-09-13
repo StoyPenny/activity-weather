@@ -10,8 +10,8 @@ COPY package*.json ./
 # Install all dependencies (including dev dependencies)
 RUN npm ci
 
-# Expose port 5173 (Vite dev server default)
-EXPOSE 5173
+# Expose port 4174 (Vite dev server default)
+EXPOSE 4174
 
 # Start the development server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

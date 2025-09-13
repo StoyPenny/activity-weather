@@ -97,6 +97,18 @@ To manage activities:
    ```
 4. Start the development server: `npm run dev`
 
+#### Node Version Note
+This project uses Vite 7.1.2 and @vitejs/plugin-react 5.0.0, which require Node.js ^20.19.0 or >=22.12.0. If you're on Node 20.15.1 (or similar), you may see `EBADENGINE` warnings during `npm install`, but the install will succeed.
+
+**Are these warnings concerning?** Not critically if using Docker for development (recommended), as the container uses `node:20-alpine` (latest Node 20.x, typically >=20.17.0, which should be compatible). However, running `npm run dev` or `npm run build` directly on host may cause runtime issues due to missing features in older Node versions.
+
+**Easy Fix Options:**
+1. **Update Host Node.js**: Upgrade to Node 20.19+ via [nodejs.org](https://nodejs.org/) or your package manager (e.g., `nvm install 20.19.0` if using nvm).
+2. **Use Docker Exclusively**: Run `docker-compose --profile dev up --build` to isolate the environment and avoid host Node issues.
+3. **Downgrade Vite**: If host upgrade isn't feasible, pin to Vite 6.x in package.json (e.g., `"vite": "^6.0.0"`, `"@vitejs/plugin-react": "^4.3.1"`), then `npm install`. This avoids the Node requirement but may miss newer features.
+
+For production deploys, ensure the build environment meets the Node requirements.
+
 ### Docker Setup
 
 For easy deployment and running on different machines, this project includes Docker support.
@@ -136,7 +148,7 @@ docker-compose down
 # Run development version with hot reloading
 docker-compose --profile dev up --build
 
-# This will start the dev server on http://localhost:5173
+# This will start the dev server on http://localhost:4174
 ```
 
 **Individual Docker Commands:**
@@ -151,7 +163,7 @@ docker run -p 4173:4173 --env-file .env activity-weather
 #### Docker Services
 
 - **activity-weather**: Production build served on port 4173
-- **activity-weather-dev**: Development build with hot reloading on port 5173 (requires `--profile dev`)
+- **activity-weather-dev**: Development build with hot reloading on port 4174 (requires `--profile dev`)
 
 ## Technology Stack
 
