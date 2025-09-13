@@ -11,7 +11,10 @@ const ForecastCard = ({ dayData, unitPreference = 'metric', onClick }) => {
 
   // Get date information
   const date = new Date(dayData.hours[0].time);
-  const dayName = date.toLocaleDateString([], { weekday: 'short' });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isToday = date.toDateString() === today.toDateString();
+  const dayName = isToday ? 'Today' : date.toLocaleDateString([], { weekday: 'short' });
   const monthDay = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
   // Calculate high/low temperatures for the day

@@ -14,9 +14,9 @@ const WeeklyForecast = ({ forecastData, unitPreference = 'metric', onDaySelect }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Get the next 7 days (starting from tomorrow)
+    // Get today and the next 7 days
     const next7Days = [];
-    for (let i = 1; i <= 7; i++) {
+    for (let i = 0; i <= 7; i++) {
       const targetDate = new Date(today);
       targetDate.setDate(today.getDate() + i);
 
@@ -54,14 +54,14 @@ const WeeklyForecast = ({ forecastData, unitPreference = 'metric', onDaySelect }
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-blue-500" />
-          7-Day Forecast
+          Today + 7-Day Forecast
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Weather outlook for the coming week
+          Today's weather and outlook for the coming week
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4">
         {weeklyData.map((day, index) => (
           <ForecastCard
             key={index}
@@ -72,10 +72,10 @@ const WeeklyForecast = ({ forecastData, unitPreference = 'metric', onDaySelect }
         ))}
       </div>
 
-      {weeklyData.length < 7 && (
+      {weeklyData.length < 8 && (
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Showing {weeklyData.length} of 7 days (forecast data may be limited)
+            Showing {weeklyData.length} of 8 days (forecast data may be limited)
           </p>
         </div>
       )}
