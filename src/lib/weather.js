@@ -1300,25 +1300,25 @@ export const calculateAllHourlyRatingsWithDetails = (hourlyData) => {
 // Function to get current weather data (first hour of the day or closest to current time)
 export const getCurrentWeatherData = (hourlyData) => {
   if (!hourlyData || hourlyData.length === 0) return null;
-  
+
   const now = new Date();
-  const currentHour = now.getHours();
-  
-  // Find the closest hour to current time, or use first available hour
+
+  // Find the hour record with the smallest absolute time difference to 'now'.
+  // Use millisecond-level comparison to avoid edge cases when hours wrap or
+  // the dataset timestamps include minutes/seconds.
   let closestHour = hourlyData[0];
-  let minDiff = Infinity;
-  
+  let minDiff = Math.abs(new Date(closestHour.time).getTime() - now.getTime());
+
   for (const hour of hourlyData) {
-    const hourTime = new Date(hour.time);
-    const hourOfDay = hourTime.getHours();
-    const diff = Math.abs(hourOfDay - currentHour);
-    
+    const hourTimeMs = new Date(hour.time).getTime();
+    const diff = Math.abs(hourTimeMs - now.getTime());
+
     if (diff < minDiff) {
       minDiff = diff;
       closestHour = hour;
     }
   }
-  
+
   return closestHour;
 };
 

@@ -17,12 +17,13 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
   const [visibleMetrics, setVisibleMetrics] = useState({
     temperature: true,
     humidity: true,
-    // precipitation: false,
+    precipitation: false,
     chanceOfRain: true,
     windSpeed: true,
+    swellHeight: true,
     pressure: false,
-    visibility: true,
-    waveHeight: false,
+    visibility: false,
+    
   });
 
   const getUnit = useMemo(() => {
@@ -45,13 +46,7 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         color: '#3b82f6',
         yAxisId: 'percentages',
       },
-      // {
-      //   key: 'precipitation',
-      //   label: `Precipitation (${getUnit('precipitation').unit})`,
-      //   icon: CloudRain,
-      //   color: '#06b6d4',
-      //   yAxisId: 'integers',
-      // },
+      
       {
         key: 'chanceOfRain',
         label: 'Chance of Rain (%)',
@@ -60,10 +55,24 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         yAxisId: 'percentages',
       },
       {
+        key: 'precipitation',
+        label: `Precipitation (${getUnit('precipitation').unit})`,
+        icon: CloudRain,
+        color: '#06b6d4',
+        yAxisId: 'integers',
+      },
+      {
         key: 'windSpeed',
         label: `Wind Speed (${getUnit('windSpeed').unit})`,
         icon: Wind,
         color: '#10b981',
+        yAxisId: 'integers',
+      },
+      {
+        key: 'swellHeight',
+        label: `Swell Height (${getUnit('swellHeight').unit})`,
+        icon: Waves,
+        color: '#06b6d4',
         yAxisId: 'integers',
       },
       {
@@ -78,13 +87,6 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         label: `Visibility (${getUnit('visibility').unit})`,
         icon: Eye,
         color: '#8b5cf6',
-        yAxisId: 'integers',
-      },
-      {
-        key: 'waveHeight',
-        label: `Wave Height (${getUnit('waveHeight').unit})`,
-        icon: Waves,
-        color: '#06b6d4',
         yAxisId: 'integers',
       },
     ],
@@ -107,10 +109,10 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
 
       const humidity = Math.round(hour.humidity?.sg || 0);
 
-      // const precipUnit = getUnit('precipitation');
-      // const precipitation = Math.round(
-      //   precipUnit.convert(hour.precipitation?.sg || 0)
-      // );
+      const precipUnit = getUnit('precipitation');
+      const precipitation = Math.round(
+        precipUnit.convert(hour.precipitation?.sg || 0)
+      );
 
       // Chance of rain: use 'rain' field if available, otherwise calculate from precipitation and cloud cover
       const chanceOfRain = Math.round(hour.rain?.sg || Math.min(100, Math.max(0,
@@ -134,21 +136,26 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         visibilityUnit.convert(hour.visibility?.sg || 10)
       );
 
-      const waveHeightUnit = getUnit('waveHeight');
-      const waveHeight = parseFloat(
-        waveHeightUnit.convert(hour.waveHeight?.sg || 0).toFixed(2)
+      // const waveHeightUnit = getUnit('waveHeight');
+      // const waveHeight = parseFloat(
+      //   waveHeightUnit.convert(hour.waveHeight?.sg || 0).toFixed(2)
+      // );
+
+      const swellHeightUnit = getUnit('swellHeight');
+      const swellHeight = parseFloat(
+        swellHeightUnit.convert(hour.swellHeight?.sg || 0).toFixed(2)
       );
 
       return {
         time: timeLabel,
         temperature,
         humidity,
-        // precipitation,
         chanceOfRain,
+        precipitation,
         windSpeed,
         pressure,
         visibility,
-        waveHeight,
+        swellHeight,
       };
     });
   }, [hourlyData, getUnit]);
@@ -158,6 +165,22 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
       ...prev,
       [metric]: !prev[metric],
     }));
+  };
+
+  const selectAll = () => {
+    const next = {};
+    metrics.forEach((m) => {
+      next[m.key] = true;
+    });
+    setVisibleMetrics(next);
+  };
+
+  const deselectAll = () => {
+    const next = {};
+    metrics.forEach((m) => {
+      next[m.key] = false;
+    });
+    setVisibleMetrics(next);
   };
 
   if (!hourlyData || hourlyData.length === 0) {
@@ -191,26 +214,50 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         </p>
         
         {/* Toggle Controls */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          {metrics.map((metric) => {
-            const IconComponent = metric.icon;
-            const isVisible = visibleMetrics[metric.key];
-            
-            return (
-              <button
-                key={metric.key}
-                onClick={() => toggleMetric(metric.key)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isVisible
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
-                }`}
-              >
-                <IconComponent className="w-4 h-4" />
-                {metric.label}
-              </button>
-            );
-          })}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+
+          <div className="flex gap-2">
+            <button
+              onClick={selectAll}
+              className="flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-blue-100 hover:dark:bg-blue-900/30 hover:text-blue-700 hover:dark:text-blue-300 hover:border-blue-200 hover:dark:border-blue-800"
+            >
+              Select all
+            </button>
+            <button
+              onClick={deselectAll}
+              className="flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-blue-100 hover:dark:bg-blue-900/30 hover:text-blue-700 hover:dark:text-blue-300 hover:border-blue-200 hover:dark:border-blue-800"
+            >
+              Deselect all
+            </button>
+          </div>
+          
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          
+          
+
+          <div className="flex flex-wrap gap-2">
+            {metrics.map((metric) => {
+              const IconComponent = metric.icon;
+              const isVisible = visibleMetrics[metric.key];
+              
+              return (
+                <button
+                  key={metric.key}
+                  onClick={() => toggleMetric(metric.key)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isVisible
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+                  }`}
+                >
+                  <IconComponent className="w-4 h-4" />
+                  {metric.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

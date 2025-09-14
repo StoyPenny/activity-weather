@@ -32,9 +32,17 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
   const windDir = currentWeather.windDirection?.sg || 0;
   const windDirection = getWindDirection(windDir);
 
-  const waveHeightUnit = getUnit('waveHeight');
-  const waveHeight = currentWeather.waveHeight?.sg || 0;
+  // const waveHeightUnit = getUnit('waveHeight');
+  // const waveHeightRaw = currentWeather.waveHeight?.sg || 0;
+  // // Convert to display units (match the chart conversion)
+  // const waveHeight = parseFloat(waveHeightUnit.convert(waveHeightRaw).toFixed(2));
 
+
+  const swellHeightUnit = getUnit('swellHeight');
+  const swellHeightRaw = currentWeather.swellHeight?.sg || 0;
+  // Convert to display units (match the chart conversion)
+  const swellHeight = parseFloat(swellHeightUnit.convert(swellHeightRaw).toFixed(2));
+ 
 
   const visibilityUnit = getUnit('visibility');
   const visibility = Math.round(visibilityUnit.convert(currentWeather.visibility?.sg || 10));
@@ -80,10 +88,10 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
     },
     {
       icon: Waves,
-      label: 'Wave Height',
-      value: waveHeight,
-      unit: waveHeightUnit.unit,
-      subValue: waveHeight > 5 ? 'Great' : waveHeight > 3 ? 'Normal' : 'Low'
+      label: 'Swell Height',
+      value: swellHeight,
+      unit:swellHeightUnit.unit,
+      subValue: swellHeight > 5 ? 'Great' : swellHeight > 3 ? 'Normal' : 'Low'
     },
     {
       icon: Eye,
