@@ -61,12 +61,13 @@ const ForecastCard = ({ dayData, unitPreference = 'metric', onClick }) => {
     >
       <div className="text-center">
         {/* Date */}
-        <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+        <div className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
           {dayName}
         </div>
-        <div className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+        <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
           {monthDay}
         </div>
+        
 
         {/* Weather Icon */}
         <div className="flex justify-center mb-3">
