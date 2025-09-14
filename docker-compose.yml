@@ -1,6 +1,9 @@
 services:
   activity-weather:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_STORMGLASS_API_KEY: ${VITE_STORMGLASS_API_KEY}
     ports:
       - "4173:4173"
     environment:
@@ -15,6 +18,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+      args:
+        VITE_STORMGLASS_API_KEY: ${VITE_STORMGLASS_API_KEY}
     ports:
       - "4174:4174"
     volumes:
