@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Settings, RotateCcw, Save, Plus, Trash2, GripVertical } from 'lucide-react';
-import { loadSettings, saveSettings, resetToDefaults, addUserPreference, removeUserPreference, getParameterUnits, getActivityList, reorderActivities } from '../lib/settings';
+import { X, Settings, Save, Plus, Trash2, GripVertical } from 'lucide-react';
+import { loadSettings, saveSettings, addActivityParameter, removeActivityParameter, updateActivityParameter, getParameterUnits, getActivityList, reorderActivities, validateWeatherParameter } from '../lib/settings';
 import SearchableParameterDropdown from './SearchableParameterDropdown';
 
 const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
@@ -17,7 +17,6 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
   const [newActivity, setNewActivity] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [dragItem, setDragItem] = useState(null);
-  
   
   // Convert value for display based on unit preference
   const convertForDisplay = (value, parameter) => {
@@ -75,24 +74,29 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
     }
   }, []);
 
-  // Get user preferences for the selected activity
-  const getUserPreferences = () => {
+  // Get activity parameters for the selected activity (unified)
+  const getActivityParameters = (activity = selectedActivity) => {
     if (!settings) return {};
-    return settings.userPreferences?.[selectedActivity] || {};
-  };
-
-  // Get default parameters for the selected activity
-  const getDefaultParameters = () => {
-    if (!settings) return {};
-    return settings.defaults?.[selectedActivity] || {};
+    return settings.activityParams?.[activity] || {};
   };
 
   // Handle adding a new parameter
   const handleAddParameter = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     
-    if (!newParameter.trim()) {
+    const name = newParameter.trim();
+    if (!name) {
       setError('Please enter a parameter name');
+      return;
+    }
+    
+    // Validate parameter against known weather parameters
+    const validation = validateWeatherParameter(name);
+    if (!validation.isValid) {
+      const suggestionText = validation.suggestions && validation.suggestions.length
+        ? ` Suggestions: ${validation.suggestions.slice(0,5).join(', ')}`
+        : '';
+      setError(`Invalid parameter name.${suggestionText}`);
       return;
     }
     
@@ -101,17 +105,17 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
       if (newParamType === 'normalize') {
         paramConfig = {
           type: 'normalize',
-          optimal: parseFloat(newParamOptimal),
+          optimal: convertForStorage(newParamOptimal, name),
           range: parseFloat(newParamRange)
         };
       } else {
         paramConfig = {
           type: 'inverse',
-          max: parseFloat(newParamMax)
+          max: convertForStorage(newParamMax, name)
         };
       }
       
-      const updatedSettings = addUserPreference(selectedActivity, newParameter, paramConfig);
+      const updatedSettings = addActivityParameter(selectedActivity, name, paramConfig);
       setSettings(updatedSettings);
       
       // Reset form
@@ -130,7 +134,7 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
   // Handle removing a parameter
   const handleRemoveParameter = (paramName) => {
     try {
-      const updatedSettings = removeUserPreference(selectedActivity, paramName);
+      const updatedSettings = removeActivityParameter(selectedActivity, paramName);
       setSettings(updatedSettings);
     } catch (err) {
       setError('Failed to remove parameter');
@@ -141,28 +145,31 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
   // Handle parameter value change
   const handleParameterChange = (paramName, field, value) => {
     try {
-      const userPreferences = getUserPreferences();
-      const paramConfig = { ...userPreferences[paramName] };
+      const activityParams = getActivityParameters();
+      const paramConfig = { ...activityParams[paramName] };
       
       // Update the field value
       if (field === 'type') {
         paramConfig.type = value;
         // Reset to appropriate default values when changing type
         if (value === 'normalize') {
-          paramConfig.optimal = 0;
-          paramConfig.range = 1;
+          paramConfig.optimal = paramConfig.optimal ?? 0;
+          paramConfig.range = paramConfig.range ?? 1;
           delete paramConfig.max;
         } else {
-          paramConfig.max = 10;
+          paramConfig.max = paramConfig.max ?? 10;
           delete paramConfig.optimal;
           delete paramConfig.range;
         }
-      } else {
-        paramConfig[field] = parseFloat(value);
+      } else if (field === 'optimal') {
+        paramConfig.optimal = convertForStorage(value, paramName);
+      } else if (field === 'range') {
+        paramConfig.range = parseFloat(value);
+      } else if (field === 'max') {
+        paramConfig.max = convertForStorage(value, paramName);
       }
-      
-      // Update settings
-      const updatedSettings = addUserPreference(selectedActivity, paramName, paramConfig);
+
+      const updatedSettings = updateActivityParameter(selectedActivity, paramName, paramConfig);
       setSettings(updatedSettings);
     } catch (err) {
       setError('Failed to update parameter');
@@ -170,22 +177,11 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
     }
   };
 
-  // Handle save
   const handleSave = async () => {
-    if (!settings) return;
-    
     setIsSaving(true);
-    setError(null);
-    
     try {
-      // Save settings
-      saveSettings(settings);
-      
-      // Save activity list
-      reorderActivities(activityList);
-      
-      onSave?.(settings);
-      onClose();
+      await saveSettings(settings);
+      if (onSave) onSave(settings);
     } catch (err) {
       setError('Failed to save settings');
       console.error(err);
@@ -194,507 +190,213 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
     }
   };
 
-  // Handle adding a new activity
-  const handleAddActivity = (e) => {
-    e.preventDefault();
-    
-    if (!newActivity.trim()) {
+  // Reset functionality removed
+
+  const handleAddActivity = () => {
+    const name = newActivity.trim();
+    if (!name) {
       setError('Please enter an activity name');
       return;
     }
-    
-    // Check if activity already exists
-    if (activityList.includes(newActivity.trim())) {
+    if (activityList.includes(name)) {
       setError('Activity already exists');
       return;
     }
-    
     try {
-      const updatedActivities = [...activityList, newActivity.trim()];
-      setActivityList(updatedActivities);
+      // Use settings shape directly: ensure activityParams exists and add empty object
+      const updatedSettings = { ...settings };
+      updatedSettings.activityParams = { ...(updatedSettings.activityParams || {}) };
+      updatedSettings.activityParams[name] = {};
+      // maintain activity order
+      const updatedList = [...activityList, name];
+      setActivityList(updatedList);
+      setSettings(updatedSettings);
       setNewActivity('');
-      setError(null);
+      setSelectedActivity(name);
     } catch (err) {
       setError('Failed to add activity');
       console.error(err);
     }
   };
 
-  // Handle removing an activity
-  const handleRemoveActivity = (activityName) => {
+  const handleRemoveActivity = (name) => {
     try {
-      const updatedActivities = activityList.filter(activity => activity !== activityName);
-      setActivityList(updatedActivities);
-      
-      // If we're removing the selected activity, select the first one
-      if (selectedActivity === activityName) {
-        setSelectedActivity(updatedActivities.length > 0 ? updatedActivities[0] : '');
+      const updatedSettings = { ...settings };
+      const params = { ...(updatedSettings.activityParams || {}) };
+      delete params[name];
+      updatedSettings.activityParams = params;
+      const updatedList = activityList.filter(a => a !== name);
+      setActivityList(updatedList);
+      setSettings(updatedSettings);
+      if (selectedActivity === name) {
+        setSelectedActivity(updatedList[0] || '');
       }
-      
-      setError(null);
     } catch (err) {
       setError('Failed to remove activity');
       console.error(err);
     }
   };
 
-  // Handle drag start for reordering
-  const handleDragStart = (e, index) => {
+  const handleDragStart = (index) => {
     setIsDragging(true);
     setDragItem(index);
-    e.dataTransfer.effectAllowed = 'move';
   };
 
-  // Handle drag over for reordering
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+  const handleDragOver = (index) => {
+    if (!isDragging || dragItem === null || dragItem === index) return;
+    const updated = [...activityList];
+    const [moved] = updated.splice(dragItem, 1);
+    updated.splice(index, 0, moved);
+    setDragItem(index);
+    setActivityList(updated);
   };
 
-  // Handle drop for reordering
-  const handleDrop = (e, dropIndex) => {
-    e.preventDefault();
-    if (dragItem === null) return;
-    
-    const newActivities = [...activityList];
-    const draggedItem = newActivities[dragItem];
-    
-    // Remove the dragged item
-    newActivities.splice(dragItem, 1);
-    
-    // Insert the dragged item at the new position
-    newActivities.splice(dropIndex, 0, draggedItem);
-    
-    setActivityList(newActivities);
-    setIsDragging(false);
-    setDragItem(null);
-  };
-
-  // Handle drag end for reordering
   const handleDragEnd = () => {
     setIsDragging(false);
     setDragItem(null);
-  };
-
-  // Handle reset to defaults
-  const handleReset = () => {
     try {
-      const resetSettings = resetToDefaults();
-      setSettings(resetSettings);
-      setError(null);
+      const updatedSettings = reorderActivities(settings, activityList);
+      setSettings(updatedSettings);
     } catch (err) {
-      setError('Failed to reset settings');
-      console.error(err);
+      console.error('Failed to reorder activities', err);
     }
   };
 
   if (!settings) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-blue-500" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Activity Scoring Customization
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex rounded-md overflow-hidden border border-gray-300 dark:border-gray-600">
-              </div>
-              <button
-                onClick={onClose}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              </button>
-            </div>
-          </div>
-          <div className="flex justify-center items-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-500 dark:border-gray-700 dark:border-t-blue-400"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
-  const userPreferences = getUserPreferences();
-  const defaultParameters = getDefaultParameters();
-  const allParameters = { ...defaultParameters, ...userPreferences };
+  const activityParameters = getActivityParameters();
+  const allParameters = activityParameters;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+    <div className="customization-modal fixed inset-0 z-50 flex items-center justify-center">
+      {/* Overlay: semi-transparent + blur */}
+      <div className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-md" aria-hidden="true" />
+      <div className="relative z-10 bg-white dark:bg-gray-900 rounded shadow-lg w-11/12 max-w-4xl p-4 text-gray-900 dark:text-gray-100">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Settings className="text-blue-600 dark:text-blue-400" />
+            <span>Customization</span>
+          </h2>
           <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-blue-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Activity Scoring Customization
-            </h2>
+            <button onClick={handleSave} disabled={isSaving} title="Save" className="btn bg-transparent hover:bg-gray-100 text-white dark:hover:bg-gray-700">
+              <Save className="text-gray-700 dark:text-gray-200" />
+            </button>
+            <button onClick={() => onClose && onClose()} title="Close" className="btn bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800">
+              <X className="text-gray-700 dark:text-gray-200" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </button>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          </div>
-        )}
+        <div className="flex gap-4">
+          <div className="w-1/3 border-r pr-4 dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-2">
+              <input className="input px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100" value={newActivity} onChange={e => setNewActivity(e.target.value)} placeholder="New activity name" />
+              <button onClick={handleAddActivity} className="btn px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-700"><Plus /></button>
+            </div>
 
-        {/* Activity Management */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-md font-medium text-gray-900 dark:text-white">
-              Manage Activities
-            </h3>
-          </div>
-          
-          {/* Add Activity Form */}
-          <form onSubmit={handleAddActivity} className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={newActivity}
-              onChange={(e) => setNewActivity(e.target.value)}
-              placeholder="Enter new activity name"
-              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors flex items-center gap-1"
-            >
-              <Plus className="w-4 h-4" />
-              Add
-            </button>
-          </form>
-          
-          {/* Activity List */}
-          <div className="space-y-2 max-h-40 overflow-y-auto">
-            {activityList.map((activity, index) => (
-              <div
-                key={activity}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                onDragEnd={handleDragEnd}
-                className={`flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 ${
-                  isDragging && dragItem === index ? 'opacity-50' : ''
-                }`}
-              >
-                <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
-                <span
-                  className={`flex-1 text-gray-900 dark:text-white cursor-pointer ${
-                    selectedActivity === activity ? 'font-medium' : ''
-                  }`}
+            <div className="activity-tabs overflow-auto max-h-96">
+              {activityList.map((activity, idx) => (
+                <div key={activity}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => { e.preventDefault(); handleDragOver(idx); }}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center justify-between p-2 rounded cursor-pointer ${selectedActivity === activity ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                   onClick={() => setSelectedActivity(activity)}
                 >
-                  {activity}
-                </span>
-                <button
-                  onClick={() => handleRemoveActivity(activity)}
-                  className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded-md transition-colors"
-                  aria-label={`Remove ${activity}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Activity Tabs */}
-        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex space-x-2 overflow-x-auto pb-2">
-            {activityList.map((activity) => (
-              <button
-                key={activity}
-                onClick={() => setSelectedActivity(activity)}
-                className={`px-3 py-2 text-sm font-medium rounded-t-md whitespace-nowrap transition-colors ${
-                  selectedActivity === activity
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-b-2 border-blue-500'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                {activity}
-                {settings.userPreferences?.[activity] && Object.keys(settings.userPreferences[activity]).length > 0 && (
-                  <span className="ml-1 text-xs bg-blue-500 text-white rounded-full px-1.5 py-0.5">
-                    {Object.keys(settings.userPreferences[activity]).length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Parameters List */}
-        <div className="mb-6">
-          <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4">
-            Parameters for {selectedActivity}
-          </h3>
-          
-          {Object.keys(allParameters).length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <p>No parameters configured for this activity.</p>
-              <p className="text-sm mt-2">Add a parameter below to get started.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {Object.entries(allParameters).map(([paramName, paramConfig]) => {
-                const isCustom = userPreferences[paramName] !== undefined;
-                const isDefault = defaultParameters[paramName] !== undefined;
-                
-                return (
-                  <div 
-                    key={paramName} 
-                    className={`p-4 rounded-md border ${
-                      isCustom 
-                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
-                        : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <h4 className="font-medium text-gray-900 dark:text-white">{paramName}</h4>
-                        {isCustom && (
-                          <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                            Custom
-                          </span>
-                        )}
-                        {isDefault && !isCustom && (
-                          <span className="ml-2 text-xs bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">
-                            Default
-                          </span>
-                        )}
-                      </div>
-                      {isCustom && (
-                        <button
-                          onClick={() => handleRemoveParameter(paramName)}
-                          className="text-red-500 hover:text-red-700 dark:hover:text-red-400 text-sm"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Parameter Type
-                        </label>
-                        <select
-                          value={paramConfig.type}
-                          onChange={(e) => handleParameterChange(paramName, 'type', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="normalize">Normalize (optimal value)</option>
-                          <option value="inverse">Inverse (lower is better)</option>
-                        </select>
-                      </div>
-                      
-                      {paramConfig.type === 'normalize' ? (
-                        <>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Optimal Value
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="number"
-                                step="0.1"
-                                value={convertForDisplay(paramConfig.optimal || 0, paramName)}
-                                onChange={(e) => handleParameterChange(paramName, 'optimal', convertForStorage(e.target.value, paramName))}
-                                className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
-                              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                                {getParameterUnits(paramName, unitPreference).unit}
-                              </div>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Range
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0.1"
-                                value={convertForDisplay(paramConfig.range || 1, paramName)}
-                                onChange={(e) => handleParameterChange(paramName, 'range', convertForStorage(e.target.value, paramName))}
-                                className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
-                              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                                {getParameterUnits(paramName, unitPreference).unit}
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Maximum Value
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0.1"
-                              value={convertForDisplay(paramConfig.max || 10, paramName)}
-                              onChange={(e) => handleParameterChange(paramName, 'max', convertForStorage(e.target.value, paramName))}
-                              className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                              {getParameterUnits(paramName, unitPreference).unit}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="text-gray-600 dark:text-gray-300" />
+                    <span className="text-gray-800 dark:text-gray-100">{activity}</span>
                   </div>
-                );
-              })}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-300">{Object.keys(getActivityParameters(activity)).length}</span>
+                    <button onClick={(e) => { e.stopPropagation(); handleRemoveActivity(activity); }} className="btn bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800"><Trash2 className="text-red-600 dark:text-red-400" /></button>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Add Parameter Form */}
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
-          <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4">
-            Add New Parameter
-          </h3>
-          
-          <form onSubmit={handleAddParameter} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Parameter Name
-                </label>
+          <div className="w-2/3 pl-4">
+            <h3 className="font-medium mb-2">{selectedActivity}</h3>
+
+            <div className="parameters-list mb-4">
+              {Object.keys(allParameters).length === 0 && <div className="text-sm text-gray-500 dark:text-gray-300">No parameters yet</div>}
+              {Object.entries(allParameters).map(([paramName, cfg]) => (
+                <div key={paramName} className="flex items-center gap-2 p-2 rounded mb-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <div className="w-1/3">
+                    <strong className="text-gray-800 dark:text-gray-100">{paramName}</strong>
+                  </div>
+                  <div className="w-2/3 flex items-start gap-2">
+                    <select value={cfg.type || 'normalize'} onChange={(e) => handleParameterChange(paramName, 'type', e.target.value)} className="select px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="normalize">normalize</option>
+                      <option value="inverse">inverse</option>
+                    </select>
+
+                    {cfg.type === 'normalize' && (
+                      <>
+                        <div class="input-group flex flex-col items-start justify-start">
+                          <input className="input w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" type="number" value={convertForDisplay(cfg.optimal ?? 0, paramName)} onChange={e => handleParameterChange(paramName, 'optimal', e.target.value)} />
+                          <label class="text-[9px] text-gray-500 text-center w-full">Optimal</label>
+                        </div>
+
+                        <div class="input-group flex flex-col items-start justify-start">
+                          <input className="input w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" type="number" value={cfg.range ?? 1} onChange={e => handleParameterChange(paramName, 'range', e.target.value)} />
+                          <label class="text-[9px] text-gray-500 text-center w-full">Range</label>
+                        </div>
+                      </>
+                    )}
+
+                    {cfg.type === 'inverse' && (
+                      <div class="input-group flex flex-col items-start justify-start">
+                        <input className="input w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" type="number" value={convertForDisplay(cfg.max ?? 10, paramName)} onChange={e => handleParameterChange(paramName, 'max', e.target.value)} />
+                        <label class="text-[9px] text-gray-500 text-center w-full">Max</label>
+                      </div>
+                    )}
+
+                    <button onClick={() => handleRemoveParameter(paramName)} className="btn bg-transparent ml-auto hover:bg-gray-100 dark:hover:bg-gray-800"><Trash2 className="text-red-600 dark:text-red-400" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleAddParameter} className="add-parameter-form border-t pt-4">
+              <h3 className="font-medium mb-2">Add New Parameter:</h3>
+              <div className="flex items-start gap-2">
                 <SearchableParameterDropdown
                   value={newParameter}
-                  onChange={setNewParameter}
+                  onChange={(val) => { setNewParameter(val); setError(null); }}
                   placeholder="Search for a weather parameter..."
+                  className="flex-1"
                 />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Parameter Type
-                </label>
-                <select
-                  value={newParamType}
-                  onChange={(e) => setNewParamType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="normalize">Normalize (optimal value)</option>
-                  <option value="inverse">Inverse (lower is better)</option>
+                <select value={newParamType} onChange={e => setNewParamType(e.target.value)} className="select px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <option value="normalize">normalize</option>
+                  <option value="inverse">inverse</option>
                 </select>
-              </div>
-            </div>
-            
-            {newParamType === 'normalize' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Optimal Value
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={newParameter ? convertForDisplay(newParamOptimal, newParameter) : ''}
-                      onChange={(e) => setNewParamOptimal(newParameter ? convertForStorage(e.target.value, newParameter) : e.target.value)}
-                      className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                      {newParameter ? getParameterUnits(newParameter, unitPreference).unit : ''}
+                {newParamType === 'normalize' ? (
+                  <>
+                    <div class="input-group flex flex-col items-start justify-start">
+                      <input className="input w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" type="number" value={newParamOptimal} onChange={e => setNewParamOptimal(e.target.value)} placeholder="optimal" />
+                      <label class="text-[9px] text-gray-500 text-center w-full">Optimal</label>
                     </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Range
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      value={newParameter ? convertForDisplay(newParamRange, newParameter) : ''}
-                      onChange={(e) => setNewParamRange(newParameter ? convertForStorage(e.target.value, newParameter) : e.target.value)}
-                      className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                      {newParameter ? getParameterUnits(newParameter, unitPreference).unit : ''}
+                    <div class="input-group flex flex-col items-start justify-start">
+                      <input className="input w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" type="number" value={newParamRange} onChange={e => setNewParamRange(e.target.value)} placeholder="range" />
+                      <label class="text-[9px] text-gray-500 text-center w-full">Range</label>
                     </div>
+                  </>
+                ) : (
+                  <div class="input-group flex flex-col items-start justify-start">
+                    <input className="input w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" type="number" value={newParamMax} onChange={e => setNewParamMax(e.target.value)} placeholder="max" />
+                    <label class="text-[9px] text-gray-500 text-center w-full">Max</label>
                   </div>
-                </div>
+                )}
+                <button type="submit" className="btn bg-blue-600 px-3 py-2 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-400"><Plus /></button>
               </div>
-            ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Maximum Value
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={newParameter ? convertForDisplay(newParamMax, newParameter) : ''}
-                    onChange={(e) => setNewParamMax(newParameter ? convertForStorage(e.target.value, newParameter) : e.target.value)}
-                    className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 dark:text-gray-400">
-                    {newParameter ? getParameterUnits(newParameter, unitPreference).unit : ''}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors"
-            >
-              Add Parameter
-            </button>
-          </form>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={handleReset}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reset to Defaults
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
-          >
-            {isSaving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Changes
-              </>
-            )}
-          </button>
+              {error && <div className="text-red-600 dark:text-red-400 mt-2">{error}</div>}
+            </form>
+          </div>
         </div>
       </div>
     </div>

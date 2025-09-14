@@ -1,6 +1,6 @@
 // --- SETTINGS MANAGEMENT SYSTEM ---
 const SETTINGS_STORAGE_KEY = 'activity_scoring_settings';
-const SETTINGS_VERSION = 3; // Updated version to handle theme preference
+const SETTINGS_VERSION = 4; // New version for unified activityParams structure
 
 // Default settings for all activities and parameters
 const DEFAULT_SETTINGS = {
@@ -18,7 +18,7 @@ const DEFAULT_SETTINGS = {
     'Kayaking',
     'Snorkeling'
   ],
-  defaults: {
+  activityParams: {
     'Surfing': {
       'swellHeight': {
         type: 'normalize',
@@ -125,8 +125,7 @@ const DEFAULT_SETTINGS = {
         max: 0.3
       }
     }
-  },
-  userPreferences: {}
+  }
 };
 
 /**
@@ -137,30 +136,66 @@ export const loadSettings = () => {
   try {
     const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!stored) {
-      return { ...DEFAULT_SETTINGS };
+      // First time: initialize with defaults
+      const initialSettings = { ...DEFAULT_SETTINGS };
+      saveSettings(initialSettings); // Persist the initial template
+      return initialSettings;
     }
 
     const parsed = JSON.parse(stored);
     
-    // Validate version and structure
-    if (parsed.version !== SETTINGS_VERSION) {
-      console.warn('Settings version mismatch, resetting to defaults');
-      return { ...DEFAULT_SETTINGS };
+    // Handle version migration
+    if (parsed.version < SETTINGS_VERSION) {
+      console.log(`Migrating settings from version ${parsed.version} to ${SETTINGS_VERSION}`);
+      
+      let migrated = { ...parsed };
+      
+      if (parsed.version < 4) {
+        // Migrate from v3 or earlier: merge defaults + userPreferences into activityParams
+        const oldDefaults = parsed.defaults || DEFAULT_SETTINGS.defaults;
+        const oldUserPrefs = parsed.userPreferences || {};
+        
+        const activityParams = {};
+        
+        // For activities in the list, merge defaults and user prefs
+        const activities = parsed.activities || Object.keys(oldDefaults);
+        for (const activity of activities) {
+          const defaultsForActivity = oldDefaults[activity] || {};
+          const userPrefsForActivity = oldUserPrefs[activity] || {};
+          activityParams[activity] = {
+            ...defaultsForActivity,
+            ...userPrefsForActivity
+          };
+        }
+        
+        // For any user prefs not in activities list, add them (rare case)
+        for (const activity in oldUserPrefs) {
+          if (!activities.includes(activity)) {
+            activities.push(activity);
+            activityParams[activity] = oldUserPrefs[activity];
+          }
+        }
+        
+        migrated = {
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          version: SETTINGS_VERSION,
+          activities: activities,
+          activityParams: activityParams,
+          // Remove old fields
+          defaults: undefined,
+          userPreferences: undefined
+        };
+        
+        // Save migrated settings
+        saveSettings(migrated);
+      }
+      
+      return migrated;
     }
     
-    // Merge with defaults to ensure all activities/parameters exist
-    const merged = {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      activities: parsed.activities || DEFAULT_SETTINGS.activities,
-      defaults: {
-        ...DEFAULT_SETTINGS.defaults,
-        ...parsed.defaults
-      },
-      userPreferences: parsed.userPreferences || {}
-    };
-    
-    return merged;
+    // For version 4+, return as-is (no merging)
+    return parsed;
   } catch (error) {
     console.warn('Failed to load settings, using defaults:', error);
     return { ...DEFAULT_SETTINGS };
@@ -185,33 +220,31 @@ export const saveSettings = (settings) => {
 };
 
 /**
- * Get effective settings (defaults merged with user preferences)
+ * Get effective settings (uses activityParams directly)
  * @returns {Object} Effective settings
  */
 export const getEffectiveSettings = () => {
   const settings = loadSettings();
   
-  // Merge defaults with user preferences
   const effective = { ...settings };
   
-  // Handle activities list for backward compatibility
+  // Ensure activities list exists
   if (!settings.activities) {
-    // If no activities list exists, create one from defaults
-    effective.activities = Object.keys(settings.defaults || {});
+    effective.activities = Object.keys(settings.activityParams || {});
+    // Update storage if needed
+    saveSettings(effective);
   } else {
     effective.activities = settings.activities;
   }
   
-  // Create activities parameter mapping
-  effective.activityParameters = {};
+  // activityParameters is now just activityParams
+  effective.activityParameters = settings.activityParams || {};
   
-  // For each activity in the activity list, merge defaults with user preferences
-  for (const activityName of settings.activities || []) {
-    const defaultParams = settings.defaults?.[activityName] || {};
-    effective.activityParameters[activityName] = {
-      ...defaultParams,
-      ...(settings.userPreferences[activityName] || {})
-    };
+  // Ensure all activities in list have params (empty if not)
+  for (const activityName of effective.activities) {
+    if (!effective.activityParameters[activityName]) {
+      effective.activityParameters[activityName] = {};
+    }
   }
   
   return effective;
@@ -224,8 +257,7 @@ export const resetToDefaults = () => {
   try {
     const defaultSettings = {
       ...DEFAULT_SETTINGS,
-      lastUpdated: new Date().toISOString(),
-      userPreferences: {}
+      lastUpdated: new Date().toISOString()
     };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(defaultSettings));
     console.log('Settings reset to defaults');
@@ -237,47 +269,83 @@ export const resetToDefaults = () => {
 };
 
 /**
+ * DEPRECATED: Use updateActivityParameter instead
  * Update user preferences for an activity
  * @param {string} activityName - Name of the activity
  * @param {Object} preferences - Parameter preferences to update
  */
 export const updateUserPreferences = (activityName, preferences) => {
+  console.warn('updateUserPreferences is deprecated; use updateActivityParameter');
+  // For backward compatibility, convert to new API
+  const updates = {};
+  for (const [paramName, config] of Object.entries(preferences)) {
+    updates[paramName] = config;
+  }
+  return updateActivityParameter(activityName, updates);
+};
+
+/**
+ * Update parameter for an activity (unified)
+ * @param {string} activityName - Name of the activity
+ * @param {Object|string} paramNameOrUpdates - Param name and config, or object of updates
+ * @param {Object} config - Parameter config (if paramName provided)
+ */
+export const updateActivityParameter = (activityName, paramNameOrUpdates, config) => {
   const settings = loadSettings();
   
-  // Initialize userPreferences if it doesn't exist
-  if (!settings.userPreferences) {
-    settings.userPreferences = {};
+  // Ensure activityParams exists
+  if (!settings.activityParams) {
+    settings.activityParams = {};
   }
   
-  // Initialize activity preferences if they don't exist
-  if (!settings.userPreferences[activityName]) {
-    settings.userPreferences[activityName] = {};
+  // Ensure activity has params
+  if (!settings.activityParams[activityName]) {
+    settings.activityParams[activityName] = {};
   }
   
-  // Update the preferences
-  settings.userPreferences[activityName] = {
-    ...settings.userPreferences[activityName],
-    ...preferences
-  };
+  let updates = {};
+  if (typeof paramNameOrUpdates === 'object' && !config) {
+    // Bulk update
+    updates = paramNameOrUpdates;
+  } else {
+    // Single update
+    updates[paramNameOrUpdates] = config;
+  }
+  
+  // Apply updates
+  for (const [paramName, paramConfig] of Object.entries(updates)) {
+    settings.activityParams[activityName][paramName] = { ...paramConfig };
+  }
   
   saveSettings(settings);
   return settings;
 };
 
 /**
+ * DEPRECATED: Use removeActivityParameter instead
  * Remove a parameter from user preferences
  * @param {string} activityName - Name of the activity
  * @param {string} parameterName - Name of the parameter to remove
  */
 export const removeUserPreference = (activityName, parameterName) => {
+  console.warn('removeUserPreference is deprecated; use removeActivityParameter');
+  return removeActivityParameter(activityName, parameterName);
+};
+
+/**
+ * Remove a parameter from activity params
+ * @param {string} activityName - Name of the activity
+ * @param {string} parameterName - Name of the parameter to remove
+ */
+export const removeActivityParameter = (activityName, parameterName) => {
   const settings = loadSettings();
   
-  if (settings.userPreferences?.[activityName]?.[parameterName]) {
-    delete settings.userPreferences[activityName][parameterName];
+  if (settings.activityParams?.[activityName]?.[parameterName]) {
+    delete settings.activityParams[activityName][parameterName];
     
-    // Clean up empty activity object
-    if (Object.keys(settings.userPreferences[activityName]).length === 0) {
-      delete settings.userPreferences[activityName];
+    // Clean up empty activity params
+    if (Object.keys(settings.activityParams[activityName]).length === 0) {
+      delete settings.activityParams[activityName];
     }
     
     saveSettings(settings);
@@ -287,26 +355,38 @@ export const removeUserPreference = (activityName, parameterName) => {
 };
 
 /**
+ * DEPRECATED: Use addActivityParameter instead
  * Add a new parameter to user preferences
  * @param {string} activityName - Name of the activity
  * @param {string} parameterName - Name of the parameter to add
  * @param {Object} parameterConfig - Configuration for the parameter
  */
 export const addUserPreference = (activityName, parameterName, parameterConfig) => {
+  console.warn('addUserPreference is deprecated; use addActivityParameter');
+  return addActivityParameter(activityName, parameterName, parameterConfig);
+};
+
+/**
+ * Add a new parameter to activity params
+ * @param {string} activityName - Name of the activity
+ * @param {string} parameterName - Name of the parameter to add
+ * @param {Object} parameterConfig - Configuration for the parameter
+ */
+export const addActivityParameter = (activityName, parameterName, parameterConfig) => {
   const settings = loadSettings();
   
-  // Initialize userPreferences if it doesn't exist
-  if (!settings.userPreferences) {
-    settings.userPreferences = {};
+  // Ensure activityParams exists
+  if (!settings.activityParams) {
+    settings.activityParams = {};
   }
   
-  // Initialize activity preferences if they don't exist
-  if (!settings.userPreferences[activityName]) {
-    settings.userPreferences[activityName] = {};
+  // Ensure activity has params
+  if (!settings.activityParams[activityName]) {
+    settings.activityParams[activityName] = {};
   }
   
-  // Add the parameter
-  settings.userPreferences[activityName][parameterName] = parameterConfig;
+  // Add/update the parameter
+  settings.activityParams[activityName][parameterName] = { ...parameterConfig };
   
   saveSettings(settings);
   return settings;
@@ -329,47 +409,40 @@ export const validateSettings = (settings) => {
     errors.push(`Invalid settings version: ${settings.version}`);
   }
   
-  if (!settings.defaults) {
-    errors.push('Missing defaults object');
+  if (!settings.activityParams) {
+    errors.push('Missing activityParams object');
   }
   
-  if (!settings.userPreferences) {
-    errors.push('Missing userPreferences object');
-  }
-  
-  // Validate each activity's parameters
-  const allActivities = {
-    ...settings.defaults,
-    ...settings.userPreferences
-  };
-  
-  for (const [activityName, parameters] of Object.entries(allActivities)) {
-    if (typeof parameters !== 'object' || parameters === null) {
-      errors.push(`Invalid parameters for activity ${activityName}`);
-      continue;
-    }
-    
-    for (const [paramName, paramConfig] of Object.entries(parameters)) {
-      if (!paramConfig || typeof paramConfig !== 'object') {
-        errors.push(`Invalid configuration for parameter ${paramName} in activity ${activityName}`);
+  // Validate each activity's parameters in activityParams
+  if (settings.activityParams) {
+    for (const [activityName, parameters] of Object.entries(settings.activityParams)) {
+      if (typeof parameters !== 'object' || parameters === null) {
+        errors.push(`Invalid parameters for activity ${activityName}`);
         continue;
       }
       
-      if (!paramConfig.type || (paramConfig.type !== 'normalize' && paramConfig.type !== 'inverse')) {
-        errors.push(`Invalid type for parameter ${paramName} in activity ${activityName}`);
-        continue;
-      }
-      
-      if (paramConfig.type === 'normalize') {
-        if (typeof paramConfig.optimal !== 'number') {
-          errors.push(`Invalid optimal value for normalize parameter ${paramName} in activity ${activityName}`);
+      for (const [paramName, paramConfig] of Object.entries(parameters)) {
+        if (!paramConfig || typeof paramConfig !== 'object') {
+          errors.push(`Invalid configuration for parameter ${paramName} in activity ${activityName}`);
+          continue;
         }
-        if (typeof paramConfig.range !== 'number' || paramConfig.range <= 0) {
-          errors.push(`Invalid range value for normalize parameter ${paramName} in activity ${activityName}`);
+        
+        if (!paramConfig.type || (paramConfig.type !== 'normalize' && paramConfig.type !== 'inverse')) {
+          errors.push(`Invalid type for parameter ${paramName} in activity ${activityName}`);
+          continue;
         }
-      } else if (paramConfig.type === 'inverse') {
-        if (typeof paramConfig.max !== 'number' || paramConfig.max <= 0) {
-          errors.push(`Invalid max value for inverse parameter ${paramName} in activity ${activityName}`);
+        
+        if (paramConfig.type === 'normalize') {
+          if (typeof paramConfig.optimal !== 'number') {
+            errors.push(`Invalid optimal value for normalize parameter ${paramName} in activity ${activityName}`);
+          }
+          if (typeof paramConfig.range !== 'number' || paramConfig.range <= 0) {
+            errors.push(`Invalid range value for normalize parameter ${paramName} in activity ${activityName}`);
+          }
+        } else if (paramConfig.type === 'inverse') {
+          if (typeof paramConfig.max !== 'number' || paramConfig.max <= 0) {
+            errors.push(`Invalid max value for inverse parameter ${paramName} in activity ${activityName}`);
+          }
         }
       }
     }
@@ -537,9 +610,9 @@ export const getParameterUnits = (parameter, unitPreference) => {
  */
 export const getActivityList = () => {
   const settings = loadSettings();
-  // If no activities list exists, create one from defaults for backward compatibility
+  // If no activities list exists, create one from activityParams keys
   if (!settings.activities) {
-    settings.activities = Object.keys(settings.defaults || {});
+    settings.activities = Object.keys(settings.activityParams || {});
     saveSettings(settings);
   }
   return settings.activities || [];
@@ -556,6 +629,16 @@ export const setActivityList = (activities) => {
   
   const settings = loadSettings();
   settings.activities = activities;
+  
+  // Remove params for removed activities
+  if (settings.activityParams) {
+    for (const activity of Object.keys(settings.activityParams)) {
+      if (!activities.includes(activity)) {
+        delete settings.activityParams[activity];
+      }
+    }
+  }
+  
   saveSettings(settings);
   return settings;
 };
@@ -572,12 +655,21 @@ export const addActivity = (activityName) => {
   const settings = loadSettings();
   // Initialize activities array if it doesn't exist
   if (!settings.activities) {
-    settings.activities = Object.keys(settings.defaults || {});
+    settings.activities = Object.keys(settings.activityParams || {});
   }
   
   // Add the activity if it doesn't already exist
   if (!settings.activities.includes(activityName)) {
     settings.activities.push(activityName);
+    
+    // Initialize empty params for new activity
+    if (!settings.activityParams) {
+      settings.activityParams = {};
+    }
+    if (!settings.activityParams[activityName]) {
+      settings.activityParams[activityName] = {};
+    }
+    
     saveSettings(settings);
   }
   
@@ -717,7 +809,7 @@ export const validateParameterConfig = (paramConfig) => {
 };
 
 /**
- * Validate and clean user preferences for an activity
+ * Validate and clean activity parameters (formerly user preferences)
  * @param {string} activityName - Name of the activity
  * @param {Object} preferences - Parameter preferences to validate
  * @returns {Object} Validation result with cleaned preferences
@@ -758,6 +850,7 @@ export const validateAndCleanUserPreferences = (activityName, preferences) => {
 };
 
 /**
+ * DEPRECATED: Use updateActivityParameterWithValidation instead
  * Enhanced update user preferences with validation
  * @param {string} activityName - Name of the activity
  * @param {Object} preferences - Parameter preferences to update
@@ -765,6 +858,18 @@ export const validateAndCleanUserPreferences = (activityName, preferences) => {
  * @returns {Object} Updated settings or validation errors
  */
 export const updateUserPreferencesWithValidation = (activityName, preferences, skipValidation = false) => {
+  console.warn('updateUserPreferencesWithValidation is deprecated; use updateActivityParameterWithValidation');
+  return updateActivityParameterWithValidation(activityName, preferences, skipValidation);
+};
+
+/**
+ * Enhanced update activity parameter with validation
+ * @param {string} activityName - Name of the activity
+ * @param {Object} preferences - Parameter preferences to update
+ * @param {boolean} skipValidation - Skip validation (for internal use)
+ * @returns {Object} Updated settings or validation errors
+ */
+export const updateActivityParameterWithValidation = (activityName, preferences, skipValidation = false) => {
   if (!skipValidation) {
     const validation = validateAndCleanUserPreferences(activityName, preferences);
     if (!validation.isValid) {
@@ -779,8 +884,8 @@ export const updateUserPreferencesWithValidation = (activityName, preferences, s
     preferences = validation.cleanedPreferences;
   }
   
-  // Use the original updateUserPreferences function
-  return updateUserPreferences(activityName, preferences);
+  // Use the new updateActivityParameter function
+  return updateActivityParameter(activityName, preferences);
 };
 
 /**
