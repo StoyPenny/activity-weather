@@ -45,6 +45,7 @@ function App() {
   const [error, setError] = useState(null);
   const [astronomyError, setAstronomyError] = useState(null);
   const [tideError, setTideError] = useState(null);
+  const [forecastError, setForecastError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [locations, setLocations] = useState([]); // multiple locations
@@ -65,6 +66,19 @@ function App() {
       setRefreshing(forceRefresh);
       setError(null);
       setQuotaExceeded(false);
+      
+      // Clear any previous location-specific data immediately so we don't show
+      // stale/cached data from a different location while loading the new one.
+      setCurrentWeatherData(null);
+      setForecastData(null);
+      setSelectedDayData(null);
+      setSelectedDayRatings(null);
+      setAstronomyData(null);
+      setTideData(null);
+      setLastUpdated(null);
+      setForecastError(null);
+      setAstronomyError(null);
+      setTideError(null);
       
       const targetLocation = location || locations[activeLocationIndex];
       if (!targetLocation) {
@@ -112,6 +126,7 @@ function App() {
   const loadForecastData = useCallback(async (location, forceRefresh = false) => {
     try {
       setForecastLoading(true);
+      setForecastError(null);
 
       // Fetch 10-day forecast data
       const forecast = await fetchForecastData(location.lat, location.lng, 10, forceRefresh);
@@ -131,7 +146,11 @@ function App() {
 
     } catch (err) {
       console.warn('Failed to load forecast data:', err);
-      // Don't set error for forecast failure, just log it
+      setForecastError('Failed to load forecast data.');
+      // Clear forecast-related UI state so it's obvious data isn't available
+      setForecastData(null);
+      setSelectedDayData(null);
+      setSelectedDayRatings(null);
     } finally {
       setForecastLoading(false);
     }
@@ -626,6 +645,14 @@ function App() {
         {error && (
           <div className="text-center py-12">
             <p className="text-red-600 dark:text-red-400 text-lg font-medium">{error}</p>
+          </div>
+        )}
+
+        {forecastError && (
+          <div className="text-center py-6">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 max-w-md mx-auto">
+              <p className="text-yellow-800 dark:text-yellow-200 text-sm font-medium">{forecastError}</p>
+            </div>
           </div>
         )}
 

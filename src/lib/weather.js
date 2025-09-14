@@ -396,95 +396,7 @@ const isCacheOperationSafe = (dataSize) => {
   };
 };
 
-// --- MOCK DATA SERVICE (FALLBACK) ---
-// This now includes data for multiple hours to simulate a daily forecast.
-const mockWeatherData = {
-  hours: [
-    // Morning (Cooler, calmer)
-    {
-      time: '2025-08-16T08:00:00+00:00',
-      airTemperature: { sg: 22 }, cloudCover: { sg: 10 }, swellHeight: { sg: 1.2 }, swellPeriod: { sg: 8 },
-      waterTemperature: { sg: 23 }, waveHeight: { sg: 0.8 }, wavePeriod: { sg: 7.5 }, waveDirection: { sg: 180 },
-      windWaveHeight: { sg: 0.5 }, windWavePeriod: { sg: 6 }, windWaveDirection: { sg: 185 },
-      windSpeed: { sg: 2 }, humidity: { sg: 65 }, precipitation: { sg: 0 }, pressure: { sg: 1015 },
-      dewPointTemperature: { sg: 15 }, visibility: { sg: 10 }, gust: { sg: 3 }, windDirection: { sg: 180 }
-    },
-    {
-      time: '2025-08-16T09:00:00+00:00',
-      airTemperature: { sg: 23 }, cloudCover: { sg: 15 }, swellHeight: { sg: 1.3 }, swellPeriod: { sg: 8 },
-      waterTemperature: { sg: 23 }, waveHeight: { sg: 0.9 }, wavePeriod: { sg: 7.8 }, waveDirection: { sg: 185 },
-      windWaveHeight: { sg: 0.6 }, windWavePeriod: { sg: 6.2 }, windWaveDirection: { sg: 190 },
-      windSpeed: { sg: 3 }, humidity: { sg: 62 }, precipitation: { sg: 0 }, pressure: { sg: 1014 },
-      dewPointTemperature: { sg: 16 }, visibility: { sg: 10 }, gust: { sg: 4 }, windDirection: { sg: 185 }
-    },
-    {
-      time: '2025-08-16T10:00:00+00:00',
-      airTemperature: { sg: 25 }, cloudCover: { sg: 20 }, swellHeight: { sg: 1.5 }, swellPeriod: { sg: 7.5 },
-      waterTemperature: { sg: 24 }, waveHeight: { sg: 1.1 }, wavePeriod: { sg: 8.0 }, waveDirection: { sg: 190 },
-      windWaveHeight: { sg: 0.7 }, windWavePeriod: { sg: 6.5 }, windWaveDirection: { sg: 195 },
-      windSpeed: { sg: 4 }, humidity: { sg: 58 }, precipitation: { sg: 0 }, pressure: { sg: 1013 },
-      dewPointTemperature: { sg: 17 }, visibility: { sg: 10 }, gust: { sg: 5 }, windDirection: { sg: 190 }
-    },
-    {
-      time: '2025-08-16T11:00:00+00:00',
-      airTemperature: { sg: 26 }, cloudCover: { sg: 25 }, swellHeight: { sg: 1.8 }, swellPeriod: { sg: 7 },
-      waterTemperature: { sg: 24 }, waveHeight: { sg: 1.2 }, wavePeriod: { sg: 8.2 }, waveDirection: { sg: 195 },
-      windWaveHeight: { sg: 0.8 }, windWavePeriod: { sg: 6.8 }, windWaveDirection: { sg: 200 },
-      windSpeed: { sg: 5 }, humidity: { sg: 55 }, precipitation: { sg: 0 }, pressure: { sg: 1012 },
-      dewPointTemperature: { sg: 17 }, visibility: { sg: 9 }, gust: { sg: 6 }, windDirection: { sg: 195 }
-    },
-    // Midday (Hottest, wind picks up)
-    {
-      time: '2025-08-16T12:00:00+00:00',
-      airTemperature: { sg: 28 }, cloudCover: { sg: 30 }, swellHeight: { sg: 2.0 }, swellPeriod: { sg: 6.5 },
-      waterTemperature: { sg: 25 }, waveHeight: { sg: 1.5 }, wavePeriod: { sg: 8.5 }, waveDirection: { sg: 200 },
-      windWaveHeight: { sg: 1.0 }, windWavePeriod: { sg: 7.0 }, windWaveDirection: { sg: 205 },
-      windSpeed: { sg: 6 }, humidity: { sg: 52 }, precipitation: { sg: 0 }, pressure: { sg: 1011 },
-      dewPointTemperature: { sg: 18 }, visibility: { sg: 8 }, gust: { sg: 8 }, windDirection: { sg: 200 }
-    },
-    {
-      time: '2025-08-16T13:00:00+00:00',
-      airTemperature: { sg: 29 }, cloudCover: { sg: 40 }, swellHeight: { sg: 2.1 }, swellPeriod: { sg: 6 },
-      waterTemperature: { sg: 25 }, waveHeight: { sg: 1.6 }, wavePeriod: { sg: 8.8 }, waveDirection: { sg: 205 },
-      windWaveHeight: { sg: 1.1 }, windWavePeriod: { sg: 7.2 }, windWaveDirection: { sg: 210 },
-      windSpeed: { sg: 7 }, humidity: { sg: 50 }, precipitation: { sg: 0.1 }, pressure: { sg: 1010 },
-      dewPointTemperature: { sg: 18 }, visibility: { sg: 7 }, gust: { sg: 9 }, windDirection: { sg: 205 }
-    },
-    {
-      time: '2025-08-16T14:00:00+00:00',
-      airTemperature: { sg: 29 }, cloudCover: { sg: 50 }, swellHeight: { sg: 2.0 }, swellPeriod: { sg: 6 },
-      waterTemperature: { sg: 25 }, waveHeight: { sg: 1.5 }, wavePeriod: { sg: 9.0 }, waveDirection: { sg: 210 },
-      windWaveHeight: { sg: 1.0 }, windWavePeriod: { sg: 7.0 }, windWaveDirection: { sg: 215 },
-      windSpeed: { sg: 7 }, humidity: { sg: 48 }, precipitation: { sg: 0.2 }, pressure: { sg: 1009 },
-      dewPointTemperature: { sg: 17 }, visibility: { sg: 6 }, gust: { sg: 9 }, windDirection: { sg: 210 }
-    },
-    // Afternoon (Clouds increase, wind may drop)
-    {
-      time: '2025-08-16T15:00:00+00:00',
-      airTemperature: { sg: 28 }, cloudCover: { sg: 60 }, swellHeight: { sg: 1.9 }, swellPeriod: { sg: 6.5 },
-      waterTemperature: { sg: 25 }, waveHeight: { sg: 1.4 }, wavePeriod: { sg: 8.5 }, waveDirection: { sg: 215 },
-      windWaveHeight: { sg: 0.9 }, windWavePeriod: { sg: 6.8 }, windWaveDirection: { sg: 220 },
-      windSpeed: { sg: 6 }, humidity: { sg: 55 }, precipitation: { sg: 0.3 }, pressure: { sg: 1010 },
-      dewPointTemperature: { sg: 19 }, visibility: { sg: 5 }, gust: { sg: 7 }, windDirection: { sg: 215 }
-    },
-    {
-      time: '2025-08-16T16:00:00+00:00',
-      airTemperature: { sg: 27 }, cloudCover: { sg: 55 }, swellHeight: { sg: 1.8 }, swellPeriod: { sg: 7 },
-      waterTemperature: { sg: 24 }, waveHeight: { sg: 1.3 }, wavePeriod: { sg: 8.2 }, waveDirection: { sg: 220 },
-      windWaveHeight: { sg: 0.8 }, windWavePeriod: { sg: 6.5 }, windWaveDirection: { sg: 225 },
-      windSpeed: { sg: 5 }, humidity: { sg: 60 }, precipitation: { sg: 0.1 }, pressure: { sg: 1011 },
-      dewPointTemperature: { sg: 19 }, visibility: { sg: 6 }, gust: { sg: 6 }, windDirection: { sg: 220 }
-    },
-    {
-      time: '2025-08-16T17:00:00+00:00',
-      airTemperature: { sg: 26 }, cloudCover: { sg: 45 }, swellHeight: { sg: 1.6 }, swellPeriod: { sg: 7.5 },
-      waterTemperature: { sg: 24 }, waveHeight: { sg: 1.1 }, wavePeriod: { sg: 8.0 }, waveDirection: { sg: 225 },
-      windWaveHeight: { sg: 0.7 }, windWavePeriod: { sg: 6.2 }, windWaveDirection: { sg: 230 },
-      windSpeed: { sg: 4 }, humidity: { sg: 65 }, precipitation: { sg: 0 }, pressure: { sg: 1012 },
-      dewPointTemperature: { sg: 19 }, visibility: { sg: 8 }, gust: { sg: 5 }, windDirection: { sg: 225 }
-    },
-  ],
-};
+/* Mock weather data removed — failures now surface errors to the UI instead of returning mock data. */
 
 // --- STORMGLASS API SERVICE ---
 const fetchStormglassData = async (lat, lng) => {
@@ -819,49 +731,7 @@ export const getCacheTimestamp = (lat, lng, type = 'current') => {
   }
 };
 
-// --- UTILITY FUNCTIONS FOR FORECAST DATA ---
-// Generate mock forecast data for multiple days
-const generateMockForecastData = (days) => {
-  const mockHours = [];
-  const baseDate = new Date();
-  
-  for (let day = 0; day < days; day++) {
-    for (let hour = 0; hour < 24; hour++) {
-      const currentDate = new Date(baseDate);
-      currentDate.setDate(currentDate.getDate() + day);
-      currentDate.setHours(hour, 0, 0, 0);
-      
-      // Vary conditions slightly for each day and hour
-      const dayVariation = Math.sin(day * 0.5) * 3; // Slight variation across days
-      const hourVariation = Math.sin(hour * 0.26) * 5; // Variation across hours of day
-      
-      mockHours.push({
-        time: currentDate.toISOString(),
-        airTemperature: { sg: 22 + dayVariation + hourVariation },
-        cloudCover: { sg: Math.max(0, Math.min(100, 30 + dayVariation * 5 + hourVariation * 2)) },
-        swellHeight: { sg: Math.max(0.5, 1.5 + dayVariation * 0.3) },
-        swellPeriod: { sg: Math.max(4, 8 + dayVariation * 0.5) },
-        waterTemperature: { sg: 23 + dayVariation * 0.5 },
-        waveHeight: { sg: Math.max(0.3, 1.0 + dayVariation * 0.2) },
-        wavePeriod: { sg: Math.max(5, 7.5 + dayVariation * 0.3) },
-        waveDirection: { sg: 180 + day * 5 },
-        windWaveHeight: { sg: Math.max(0.2, 0.7 + dayVariation * 0.1) },
-        windWavePeriod: { sg: Math.max(4, 6.5 + dayVariation * 0.2) },
-        windWaveDirection: { sg: 185 + day * 5 },
-        windSpeed: { sg: Math.max(0, 4 + dayVariation + hourVariation * 0.5) },
-        humidity: { sg: Math.max(30, Math.min(90, 60 + dayVariation * 3)) },
-        precipitation: { sg: Math.max(0, dayVariation > 2 ? dayVariation - 2 : 0) },
-        pressure: { sg: 1013 + dayVariation },
-        dewPointTemperature: { sg: 16 + dayVariation * 0.5 },
-        visibility: { sg: Math.max(3, 10 - Math.abs(dayVariation)) },
-        gust: { sg: Math.max(0, 5 + dayVariation + hourVariation * 0.3) },
-        windDirection: { sg: 180 + day * 10 }
-      });
-    }
-  }
-  
-  return mockHours;
-};
+/* Mock forecast generator removed — failures now surface errors to the UI instead of returning generated mock data. */
 
 // --- MAIN FETCH FUNCTION WITH CACHING AND FALLBACK ---
 export const fetchWeatherData = async (lat, lng, forceRefresh = false) => {
@@ -887,37 +757,34 @@ export const fetchWeatherData = async (lat, lng, forceRefresh = false) => {
     setCachedData(liveData, lat, lng);
     
     return liveData;
-  } catch (error) {
-    // Check if this is a quota exceeded error
-    if (error.message.startsWith('API_QUOTA_EXCEEDED:')) {
-      const metaString = error.message.replace('API_QUOTA_EXCEEDED:', '');
-      const quotaMeta = JSON.parse(metaString);
-      console.warn('API quota exceeded. Preserving cached data if available.');
-      
-      // Try to return cached data without clearing it
-      const cached = getCachedData(lat, lng);
-      if (cached) {
-        // Return cached data but with updated quota meta
-        return {
-          ...cached.data,
-          meta: quotaMeta
-        };
-      }
-      
-      // If no cache available, throw quota exceeded error with meta
-      const quotaError = new Error('API quota exceeded');
-      quotaError.quotaMeta = quotaMeta;
-      throw quotaError;
+} catch (error) {
+  // Check if this is a quota exceeded error
+  if (error.message.startsWith('API_QUOTA_EXCEEDED:')) {
+    const metaString = error.message.replace('API_QUOTA_EXCEEDED:', '');
+    const quotaMeta = JSON.parse(metaString);
+    console.warn('API quota exceeded. Preserving cached data if available.');
+
+    // Try to return cached data without clearing it
+    const cached = getCachedData(lat, lng);
+    if (cached) {
+      // Return cached data but with updated quota meta
+      return {
+        ...cached.data,
+        meta: quotaMeta
+      };
     }
-    
-    console.warn('Failed to fetch live weather data, falling back to mock data:', error.message);
-    // Simulate loading time even for fallback
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      hours: mockWeatherData.hours,
-      meta: null // No quota info for mock data
-    };
+
+    // If no cache available, throw quota exceeded error with meta
+    const quotaError = new Error('API quota exceeded');
+    quotaError.quotaMeta = quotaMeta;
+    throw quotaError;
   }
+
+  // For all other errors, surface them to the caller instead of returning mock data.
+  // This makes it clear to the UI that live data could not be fetched.
+  console.error('Failed to fetch live weather data:', error);
+  throw new Error(`Failed to fetch weather data: ${error.message}`);
+}
 };
 
 // --- FORECAST FETCH FUNCTION WITH CACHING AND FALLBACK ---
@@ -949,38 +816,33 @@ export const fetchForecastData = async (lat, lng, days = 10, forceRefresh = fals
     setCachedForecastData(liveData, lat, lng);
     
     return liveData;
-  } catch (error) {
-    // Check if this is a quota exceeded error
-    if (error.message.startsWith('API_QUOTA_EXCEEDED:')) {
-      const metaString = error.message.replace('API_QUOTA_EXCEEDED:', '');
-      const quotaMeta = JSON.parse(metaString);
-      console.warn('API quota exceeded for forecast. Preserving cached data if available.');
-      
-      // Try to return cached forecast data without clearing it
-      const cached = getCachedForecastData(lat, lng);
-      if (cached) {
-        // Return cached data but with updated quota meta
-        return {
-          ...cached.data,
-          meta: quotaMeta
-        };
-      }
-      
-      // If no cache available, throw quota exceeded error with meta
-      const quotaError = new Error('API quota exceeded');
-      quotaError.quotaMeta = quotaMeta;
-      throw quotaError;
+} catch (error) {
+  // Check if this is a quota exceeded error
+  if (error.message.startsWith('API_QUOTA_EXCEEDED:')) {
+    const metaString = error.message.replace('API_QUOTA_EXCEEDED:', '');
+    const quotaMeta = JSON.parse(metaString);
+    console.warn('API quota exceeded for forecast. Preserving cached data if available.');
+
+    // Try to return cached forecast data without clearing it
+    const cached = getCachedForecastData(lat, lng);
+    if (cached) {
+      // Return cached data but with updated quota meta
+      return {
+        ...cached.data,
+        meta: quotaMeta
+      };
     }
-    
-    console.warn('Failed to fetch forecast data, falling back to mock data:', error.message);
-    // Generate mock forecast data for multiple days
-    const mockForecastData = generateMockForecastData(days);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      hours: mockForecastData,
-      meta: null // No quota info for mock data
-    };
+
+    // If no cache available, throw quota exceeded error with meta
+    const quotaError = new Error('API quota exceeded');
+    quotaError.quotaMeta = quotaMeta;
+    throw quotaError;
   }
+
+  // For other forecast fetch errors, surface them to the caller instead of returning generated mock data.
+  console.error('Failed to fetch forecast data:', error);
+  throw new Error(`Failed to fetch forecast data: ${error.message}`);
+}
 };
 
 // Helper function to get local date string (YYYY-MM-DD) from a Date object
