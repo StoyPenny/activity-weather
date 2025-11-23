@@ -103,7 +103,7 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
   ];
 
   return (
-    <Card className="p-4 mb-8 md:p-6 bg-white dark:bg-blue-950/20 dark:border-blue-900/50 rounded-lg shadow-lg">
+    <Card className="p-4 mb-8 mt-8 md:p-6 bg-white dark:bg-blue-950/20 dark:border-blue-900/50 rounded-lg shadow-lg">
       
       <h2 className="text-xl text-center text-gray-900 dark:text-white dark:text-opacity-50 mb-2">
         Current Conditions
