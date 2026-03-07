@@ -658,14 +658,7 @@ function App() {
 
         
 
-        {/* Weather Summary - Always shows current conditions */}
-        {currentWeatherData && !loading && (
-          <WeatherSummary
-            hourlyData={currentWeatherData}
-            unitPreference={unitPreference}
-          />
-        )}
-
+        
         {/* Activity Timeline Cards - Shows selected day ratings */}
         {selectedDayRatings && (
           <div className="flex flex-wrap ml-[-0.75rem] mr-[-0.75rem] mb-8">
@@ -679,10 +672,10 @@ function App() {
           </div>
         )}
 
-        {/* Weather Chart - Shows selected day data */}
-        {selectedDayData && !loading && (
-          <WeatherChart
-            hourlyData={selectedDayData}
+        {/* Weather Summary - Always shows current conditions */}
+        {currentWeatherData && !loading && (
+          <WeatherSummary
+            hourlyData={currentWeatherData}
             unitPreference={unitPreference}
           />
         )}
@@ -695,6 +688,16 @@ function App() {
             onDaySelect={handleDateChange}
           />
         )}
+
+        {/* Weather Chart - Shows selected day data */}
+        {selectedDayData && !loading && (
+          <WeatherChart
+            hourlyData={selectedDayData}
+            unitPreference={unitPreference}
+          />
+        )}
+
+        
 
 
         {/* Astronomical Data - Shows sun and moon information */}
