@@ -15,6 +15,7 @@ const { getDb } = require('./database');
 
 const healthRouter   = require('./routes/health');
 const settingsRouter = require('./routes/settings');
+const weatherRouter  = require('./routes/weather');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -38,9 +39,7 @@ app.use(express.json());
 
 app.use('/api/health',   healthRouter);
 app.use('/api/settings', settingsRouter);
-
-// Weather proxy is mounted in task 3:
-//   app.use('/api/weather', require('./routes/weather'));
+app.use('/api/weather',  weatherRouter);
 
 // ---------------------------------------------------------------------------
 // 404 handler
