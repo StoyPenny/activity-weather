@@ -11,7 +11,7 @@ import {
 // import { fetchAstronomyDataCached } from "./lib/astronomy";
 // import { fetchTideDataCached } from "./lib/tides";
 import { getCurrentLocationOrDefault, saveLocation, removeLocationByIndex } from "./lib/location";
-import { getUnitPreference, setUnitPreference, getThemePreference, setThemePreference } from "./lib/settings";
+import { initSettings, getUnitPreference, setUnitPreference, getThemePreference, setThemePreference } from "./lib/settings";
 import ActivityTimelineCard from "./components/ActivityTimelineCard";
 import LocationInput from "./components/LocationInput";
 import CustomizationModal from "./components/CustomizationModal";
@@ -360,9 +360,33 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        // Load settings from backend before anything else so the in-memory
+        // cache is warm before weather ratings are calculated.
+        await initSettings();
+
+        // Apply unit and theme preferences now that settings are loaded.
+        try {
+          const unit = getUnitPreference();
+          setUnitPreferenceState(unit);
+        } catch (err) {
+          console.warn('Failed to load unit preference, using default:', err);
+        }
+
+        try {
+          const theme = getThemePreference();
+          setThemePreferenceState(theme);
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (err) {
+          console.warn('Failed to load theme preference, using default:', err);
+        }
+
         // Get current location from storage (no default fallback)
         const stored = getCurrentLocationOrDefault();
-        
+
         if (stored && Array.isArray(stored) && stored.length > 0) {
           setLocations(stored);
           await loadWeatherData(stored[0]);
@@ -380,33 +404,6 @@ function App() {
     };
 
     initializeApp();
-  }, []);
-
-  // Initialize unit preference
-  useEffect(() => {
-    try {
-      const preference = getUnitPreference();
-      setUnitPreferenceState(preference);
-    } catch (err) {
-      console.warn('Failed to load unit preference, using default:', err);
-    }
-  }, []);
-
-  // Initialize theme preference
-  useEffect(() => {
-    try {
-      const theme = getThemePreference();
-      setThemePreferenceState(theme);
-
-      // Apply theme to document
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    } catch (err) {
-      console.warn('Failed to load theme preference, using default:', err);
-    }
   }, []);
 
   // Watch for active location changes and reload weather data
