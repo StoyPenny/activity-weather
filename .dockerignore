@@ -59,3 +59,6 @@ temp
 
 # README and documentation (optional, remove if you want them in container)
 README.md
+
+# Backend source — irrelevant to the frontend build context
+server/

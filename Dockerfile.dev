@@ -1,17 +1,12 @@
-# Development Dockerfile for hot reloading
+# Development Dockerfile – Vite dev server with hot module replacement
 FROM node:20-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Install all dependencies (including devDependencies)
 COPY package*.json ./
-
-# Install all dependencies (including dev dependencies)
 RUN npm ci
 
-# Expose port 4174 (Vite dev server default)
-EXPOSE 4174
+EXPOSE 4175
 
-# Start the development server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

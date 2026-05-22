@@ -1,27 +1,23 @@
-# Use Node.js 20 Alpine as base image
-FROM node:20-alpine
+# Stage 1: Build the Vite frontend
+FROM node:20-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Allow passing Vite build-time envs into the image so Vite can embed them at build time
-ARG VITE_STORMGLASS_API_KEY
-ENV VITE_STORMGLASS_API_KEY=$VITE_STORMGLASS_API_KEY
-
-# Copy package files
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production=false
-
-# Copy source code
 COPY . .
-
-# Build the application (Vite will read import.meta.env.VITE_STORMGLASS_API_KEY at build time)
 RUN npm run build
 
-# Expose port 4173 (Vite preview default)
-EXPOSE 4173
+# Stage 2: Serve the built assets with nginx; proxy /api to the backend service
+FROM nginx:alpine
 
-# Start the application in preview mode
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -qO- http://localhost/index.html || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]
