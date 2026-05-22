@@ -13,7 +13,8 @@ const express = require('express');
 const cors    = require('cors');
 const { getDb } = require('./database');
 
-const healthRouter = require('./routes/health');
+const healthRouter   = require('./routes/health');
+const settingsRouter = require('./routes/settings');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -35,11 +36,11 @@ app.use(express.json());
 // Routes
 // ---------------------------------------------------------------------------
 
-app.use('/api/health', healthRouter);
+app.use('/api/health',   healthRouter);
+app.use('/api/settings', settingsRouter);
 
-// Settings and weather routes are mounted in later tasks:
-//   app.use('/api/settings', require('./routes/settings'));
-//   app.use('/api/weather',  require('./routes/weather'));
+// Weather proxy is mounted in task 3:
+//   app.use('/api/weather', require('./routes/weather'));
 
 // ---------------------------------------------------------------------------
 // 404 handler
