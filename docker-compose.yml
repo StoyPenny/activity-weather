@@ -1,35 +1,82 @@
 services:
-  activity-weather:
+
+  # ──────────────────────────────────────────────
+  # Production services  (default – no profile)
+  # Usage: docker compose up
+  # ──────────────────────────────────────────────
+
+  frontend:
     build:
       context: .
-      args:
-        VITE_STORMGLASS_API_KEY: ${VITE_STORMGLASS_API_KEY}
+      dockerfile: Dockerfile
     ports:
-      - "4173:4173"
-    environment:
-      - VITE_STORMGLASS_API_KEY=${VITE_STORMGLASS_API_KEY}
-    env_file:
-      - .env
+      - "4173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     container_name: activity-weather-app
 
-  # Development service (optional)
-  activity-weather-dev:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    expose:
+      - "3001"
+    env_file:
+      - server/.env
+    volumes:
+      - backend-data:/app/data
+    restart: unless-stopped
+    container_name: activity-weather-backend
+
+  # ──────────────────────────────────────────────
+  # Development services  (optional – dev profile)
+  # Usage: docker compose --profile dev up
+  #
+  # NOTE: Services without a 'profiles' key (frontend, backend) are always
+  # active, so the above command starts all four services. To start ONLY the
+  # dev services run:
+  #   docker compose --profile dev up frontend-dev backend-dev
+  # ──────────────────────────────────────────────
+
+  frontend-dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
-      args:
-        VITE_STORMGLASS_API_KEY: ${VITE_STORMGLASS_API_KEY}
     ports:
-      - "4174:4174"
+      - "4175:4175"
     volumes:
       - .:/app
       - /app/node_modules
     environment:
-      - VITE_STORMGLASS_API_KEY=${VITE_STORMGLASS_API_KEY}
-    env_file:
-      - .env
+      # Route Vite dev-server proxy to the backend container
+      - VITE_API_TARGET=http://backend-dev:3001
+    depends_on:
+      - backend-dev
     restart: unless-stopped
-    container_name: activity-weather-dev
+    container_name: activity-weather-frontend-dev
     profiles:
       - dev
+
+  backend-dev:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      # Expose 3001 to the host so you can hit the API directly during development
+      - "3001:3001"
+    env_file:
+      - server/.env
+    volumes:
+      - backend-data:/app/data
+      - ./server/src:/app/src   # live-reload source changes into the container
+    command: npm run dev
+    restart: unless-stopped
+    container_name: activity-weather-backend-dev
+    profiles:
+      - dev
+
+volumes:
+  backend-data:
+    driver: local

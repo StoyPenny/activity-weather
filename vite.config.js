@@ -9,7 +9,9 @@ export default defineConfig({
     port: 4175,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // VITE_API_TARGET lets Docker dev containers reach the backend service by name.
+        // Falls back to localhost for direct host-machine development.
+        target: process.env.VITE_API_TARGET || 'http://localhost:3001',
         changeOrigin: true,
       }
     }
@@ -20,6 +22,8 @@ export default defineConfig({
     },
   },
   preview: {
+    // Empty array locks `vite preview` to localhost only. This is intentional —
+    // nginx replaces `vite preview` in the Docker production flow.
     allowedHosts: []
   }
 })
