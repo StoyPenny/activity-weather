@@ -255,7 +255,7 @@ const CustomizationModal = ({ onClose, onSave, unitPreference = 'metric' }) => {
     setIsDragging(false);
     setDragItem(null);
     try {
-      const updatedSettings = reorderActivities(settings, activityList);
+      const updatedSettings = reorderActivities(activityList);
       setSettings(updatedSettings);
     } catch (err) {
       console.error('Failed to reorder activities', err);
