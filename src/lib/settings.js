@@ -149,7 +149,7 @@ export const saveSettings = (settings) => {
   _settingsCache = settingsToSave;
 
   // Persist to backend in the background.
-  const { lastUpdated, ...body } = settingsToSave;
+  const { lastUpdated: _lastUpdated, ...body } = settingsToSave;
   fetch(`${API_BASE}/settings`, {
     method: 'POST',
     headers: apiHeaders(),

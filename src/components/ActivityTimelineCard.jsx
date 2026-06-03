@@ -42,24 +42,36 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
   // Calculate current rating based on current time
   const now = new Date();
   const currentHour = now.getHours();
+  
+  // Check if this card represents "today"
+  const firstHourTime = new Date(hourlyRatings[0].time);
+  const isToday = firstHourTime.toDateString() === now.toDateString();
 
-  // Find the rating for the current hour
-  const currentHourData = hourlyRatings.find(hourData => {
-    const hourTime = new Date(hourData.time);
-    return hourTime.getHours() === currentHour;
-  });
+  // Determine display rating and label
+  let displayRating = null;
+  let ratingLabel = 'Peak';
 
-  // Extract rating, handling both object and number formats
-  let currentRating = null;
-  if (currentHourData) {
-    const ratingData = currentHourData.rating;
-    currentRating = typeof ratingData === 'object' ? ratingData.rating : ratingData;
+  if (isToday) {
+    // Find the rating for the current hour
+    const currentHourData = hourlyRatings.find(hourData => {
+      const hourTime = new Date(hourData.time);
+      return hourTime.getHours() === currentHour;
+    });
+
+    if (currentHourData) {
+      const ratingData = currentHourData.rating;
+      displayRating = typeof ratingData === 'object' ? ratingData.rating : ratingData;
+      ratingLabel = 'Now';
+    }
   }
 
-  // Fallback: if no current hour found, use the first available rating
-  if (currentRating === null && hourlyRatings.length > 0) {
-    const firstRatingData = hourlyRatings[0].rating;
-    currentRating = typeof firstRatingData === 'object' ? firstRatingData.rating : firstRatingData;
+  // Fallback: use max rating for the day if not today or no current hour data
+  if (displayRating === null && hourlyRatings.length > 0) {
+    displayRating = Math.max(...hourlyRatings.map(hourData => {
+      const ratingData = hourData.rating;
+      return typeof ratingData === 'object' ? ratingData.rating : ratingData;
+    }));
+    ratingLabel = 'Peak';
   }
 
   return (
@@ -72,7 +84,10 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
           </h3>
           
           <div className="text-6xl font-bold text-center mb-6">
-            {currentRating !== null ? currentRating.toFixed(1) : 'N/A'}
+            <span className="block text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold mb-1">
+              {ratingLabel}
+            </span>
+            {displayRating !== null ? displayRating.toFixed(1) : 'N/A'}
           </div>
 
           <div className="flex space-x-1 w-full">

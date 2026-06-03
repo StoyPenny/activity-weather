@@ -23,6 +23,36 @@ import TideData from "./components/TideData";
 
 import { RefreshCw, MapPin, Settings, MapPinPen, X, ChevronLeft, ChevronRight, Calendar, Sun, Moon } from 'lucide-react';
 
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+const formatDisplayDate = (date) => {
+  if (!date) return '';
+  
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  if (date.toDateString() === today.toDateString()) {
+    return 'Today';
+  } else if (date.toDateString() === tomorrow.toDateString()) {
+    return 'Tomorrow';
+  } else {
+    return date.toLocaleDateString([], { 
+      weekday: 'short'
+    });
+  }
+};
+
 function App() {
   // Current weather data (always today's current conditions)
   const [currentWeatherData, setCurrentWeatherData] = useState(null);
@@ -59,6 +89,10 @@ function App() {
   const [themePreference, setThemePreferenceState] = useState('light');
   const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
   const [locationToRemove, setLocationToRemove] = useState(null);
+
+  // New view mode and activity selection state
+  const [viewMode, setViewMode] = useState('day'); // 'day' | 'activity'
+  const [selectedActivity, setSelectedActivity] = useState(null);
 
   const loadWeatherData = useCallback(async (location = null, forceRefresh = false) => {
     try {
@@ -202,6 +236,36 @@ function App() {
     } else {
       setSelectedDayRatings(null);
     }
+  }, []);
+
+  // Calculate weekly ratings for a specific activity
+  const getWeeklyActivityData = useCallback((forecast, activityName) => {
+    if (!forecast) return [];
+    
+    // Get available dates
+    const availableDates = getAvailableForecastDates(forecast);
+    if (availableDates.length === 0) return [];
+
+    // Determine which activity to use
+    let targetActivity = activityName;
+    if (!targetActivity) {
+      const firstDayData = filterForecastDataByDate(forecast, availableDates[0]);
+      const firstDayRatings = calculateAllHourlyRatingsWithDetails(firstDayData.hours);
+      targetActivity = Object.keys(firstDayRatings)[0];
+    }
+
+    if (!targetActivity) return [];
+      
+    return availableDates.map(date => {
+      const dayData = filterForecastDataByDate(forecast, date);
+      const dayRatings = calculateAllHourlyRatingsWithDetails(dayData.hours);
+      
+      return {
+        date,
+        dayName: formatDisplayDate(date),
+        hourlyRatings: dayRatings[targetActivity] || []
+      };
+    });
   }, []);
 
   const handleDateChange = (newDate) => {
@@ -416,36 +480,6 @@ function App() {
     }
   }, [activeLocationIndex, locations, loadWeatherData]);
 
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    return date.toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const formatDisplayDate = (date) => {
-    if (!date) return '';
-    
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === tomorrow.toDateString()) {
-      return 'Tomorrow';
-    } else {
-      return date.toLocaleDateString([], { 
-        weekday: 'short'
-      });
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-x-hidden">
       
@@ -653,20 +687,82 @@ function App() {
           </div>
         )}
 
-        
+        {/* View Mode Toggle */}
+        {!loading && !needsInitialLocation && forecastData && (
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex p-1 bg-gray-200 dark:bg-gray-800 rounded-xl shadow-inner">
+              <button
+                onClick={() => setViewMode('day')}
+                className={`px-6 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  viewMode === 'day' 
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                By Day
+              </button>
+              <button
+                onClick={() => setViewMode('activity')}
+                className={`px-6 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  viewMode === 'activity' 
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                By Activity
+              </button>
+            </div>
+          </div>
+        )}
 
-        
-        {/* Activity Timeline Cards - Shows selected day ratings */}
-        {selectedDayRatings && (
-          <div className="flex flex-wrap ml-[-0.75rem] mr-[-0.75rem] mb-8">
-            {Object.entries(selectedDayRatings).map(([activity, hourlyRatings]) => (
-              <ActivityTimelineCard
+        {/* Activity Selection Pills (only in activity view) */}
+        {viewMode === 'activity' && !loading && !needsInitialLocation && (
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
+            {selectedDayRatings && Object.keys(selectedDayRatings).map(activity => (
+              <button
                 key={activity}
-                title={activity}
-                hourlyRatings={hourlyRatings}
-              />
+                onClick={() => setSelectedActivity(activity)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                  (selectedActivity || Object.keys(selectedDayRatings)[0]) === activity
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-500'
+                }`}
+              >
+                {activity}
+              </button>
             ))}
           </div>
+        )}
+
+        {/* Activity Timeline Cards */}
+        {!loading && (
+          <>
+            {/* By Day View: Shows all activities for the selected day */}
+            {viewMode === 'day' && selectedDayRatings && (
+              <div className="flex flex-wrap ml-[-0.75rem] mr-[-0.75rem] mb-8">
+                {Object.entries(selectedDayRatings).map(([activity, hourlyRatings]) => (
+                  <ActivityTimelineCard
+                    key={activity}
+                    title={activity}
+                    hourlyRatings={hourlyRatings}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* By Activity View: Shows selected activity for all days */}
+            {viewMode === 'activity' && forecastData && (
+              <div className="flex flex-wrap ml-[-0.75rem] mr-[-0.75rem] mb-8">
+                {getWeeklyActivityData(forecastData, selectedActivity).map((dayData, idx) => (
+                  <ActivityTimelineCard
+                    key={idx}
+                    title={dayData.dayName}
+                    hourlyRatings={dayData.hourlyRatings}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* Weather Summary - Always shows current conditions */}
@@ -687,12 +783,13 @@ function App() {
         )}
 
         {/* Weather Chart - Shows selected day data */}
-        {selectedDayData && !loading && (
+        {selectedDayData && !loading && viewMode === 'day' && (
           <WeatherChart
             hourlyData={selectedDayData}
             unitPreference={unitPreference}
           />
         )}
+
 
         
 
