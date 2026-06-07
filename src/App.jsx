@@ -753,6 +753,7 @@ function App() {
                     key={activity}
                     title={activity}
                     hourlyRatings={hourlyRatings}
+                    tideData={tideData}
                   />
                 ))}
               </div>
@@ -766,6 +767,7 @@ function App() {
                     key={idx}
                     title={dayData.dayName}
                     hourlyRatings={dayData.hourlyRatings}
+                    tideData={tideData}
                   />
                 ))}
               </div>

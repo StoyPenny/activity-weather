@@ -614,15 +614,16 @@ export const getNextTideEvents = (tideData, count = 4) => {
     return [];
   }
 
+  const events = extractHighLowTides(tideData);
   const now = new Date();
-  const futureTides = tideData.predictions
-    .filter(prediction => new Date(prediction.t) > now)
-    .sort((a, b) => new Date(a.t) - new Date(b.t))
+  const futureTides = events
+    .filter(event => event.time > now)
+    .sort((a, b) => a.time - b.time)
     .slice(0, count);
 
   return futureTides.map(tide => ({
     time: tide.t,
-    height: parseFloat(tide.v),
+    height: tide.v,
     type: tide.type,
     description: getTideTypeDescription(tide.type)
   }));
@@ -634,16 +635,16 @@ export const getCurrentTideStatus = (tideData) => {
     return null;
   }
 
-  const now = new Date();
-  const sortedPredictions = tideData.predictions
-    .map(pred => ({ ...pred, time: new Date(pred.t) }))
-    .sort((a, b) => a.time - b.time);
+  const events = extractHighLowTides(tideData);
+  if (events.length === 0) return null;
 
+  const now = new Date();
+  
   // Find the most recent tide and the next one
   let lastTide = null;
   let nextTide = null;
 
-  for (const tide of sortedPredictions) {
+  for (const tide of events) {
     if (tide.time <= now) {
       lastTide = tide;
     } else {
@@ -660,8 +661,8 @@ export const getCurrentTideStatus = (tideData) => {
   const elapsed = now - lastTide.time;
   const progress = elapsed / timeDiff;
 
-  const lastHeight = parseFloat(lastTide.v);
-  const nextHeight = parseFloat(nextTide.v);
+  const lastHeight = lastTide.v;
+  const nextHeight = nextTide.v;
 
   return {
     currentHeight: lastHeight + (nextHeight - lastHeight) * progress,
@@ -781,6 +782,49 @@ export const getTideCacheConfig = () => {
     maxEntries: CACHE_CONFIG.MAX_CACHE_ENTRIES,
     compressionThresholdKB: (CACHE_CONFIG.COMPRESSION_THRESHOLD / 1024).toFixed(1)
   };
+};
+
+/**
+ * Extracts high and low tide events from continuous prediction data.
+ * @param {Object} tideData - Tide data object
+ * @returns {Array} Array of high and low tide events with types 'H' and 'L'
+ */
+export const extractHighLowTides = (tideData) => {
+  if (!tideData?.predictions?.length) return [];
+  
+  // If data already has types, just return them (filtered)
+  const existingWithTypes = tideData.predictions.filter(p => p.type);
+  if (existingWithTypes.length > 0) {
+    return existingWithTypes.map(p => ({
+      ...p,
+      v: parseFloat(p.v),
+      time: new Date(p.t.replace(' ', 'T'))
+    }));
+  }
+
+  const events = [];
+  const preds = tideData.predictions.map(p => ({
+    ...p,
+    v: parseFloat(p.v),
+    time: new Date(p.t.replace(' ', 'T'))
+  }));
+
+  for (let i = 1; i < preds.length - 1; i++) {
+    const prev = preds[i-1].v;
+    const curr = preds[i].v;
+    const next = preds[i+1].v;
+
+    // Local maximum (High Tide)
+    if (curr > prev && curr > next) {
+      events.push({ ...preds[i], type: 'H' });
+    } 
+    // Local minimum (Low Tide)
+    else if (curr < prev && curr < next) {
+      events.push({ ...preds[i], type: 'L' });
+    }
+  }
+  
+  return events;
 };
 
 /**
