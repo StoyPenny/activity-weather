@@ -108,20 +108,14 @@ const WeatherSummary = ({ hourlyData, tideData, unitPreference = 'metric' }) => 
 
   // Add tide item if available
   if (tideStatus) {
-    let tideHeight = tideStatus.currentHeight;
-    let tideUnit = 'ft';
-    
-    // Convert to metric if needed (NOAA data is in feet)
-    if (unitPreference === 'metric') {
-      tideHeight = tideHeight / 3.28084;
-      tideUnit = 'm';
-    }
+    const tideUnit = getUnit('tideHeight');
+    const tideHeight = tideUnit.convert(tideStatus.currentHeight);
 
     weatherItems.push({
       icon: Anchor,
       label: 'Tide',
       value: parseFloat(tideHeight.toFixed(1)),
-      unit: tideUnit,
+      unit: tideUnit.unit,
       subValue: tideStatus.trend.charAt(0).toUpperCase() + tideStatus.trend.slice(1)
     });
   }

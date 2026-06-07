@@ -782,3 +782,39 @@ export const getTideCacheConfig = () => {
     compressionThresholdKB: (CACHE_CONFIG.COMPRESSION_THRESHOLD / 1024).toFixed(1)
   };
 };
+
+/**
+ * Maps high-frequency tide predictions to hourly buckets.
+ * @param {Array} hourlyData - Array of hourly weather data objects
+ * @param {Object} tideData - Tide data object from fetchTideDataCached
+ * @returns {Array} Hourly data with tideHeight property added
+ */
+export const mapTideToHourlyData = (hourlyData, tideData) => {
+  if (!hourlyData || !tideData?.predictions?.length) return hourlyData;
+
+  // Helper to find closest tide prediction for a given time
+  const getClosestTide = (targetTime) => {
+    let closest = tideData.predictions[0];
+    let minDiff = Math.abs(new Date(closest.t.replace(' ', 'T')) - targetTime);
+
+    for (let i = 1; i < tideData.predictions.length; i++) {
+      const diff = Math.abs(new Date(tideData.predictions[i].t.replace(' ', 'T')) - targetTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = tideData.predictions[i];
+      }
+    }
+    
+    // Only return if it's within a reasonable range (e.g. 30 minutes)
+    return minDiff < 30 * 60 * 1000 ? parseFloat(closest.v) : null;
+  };
+
+  return hourlyData.map(hour => {
+    const time = new Date(hour.time);
+    const tideValue = getClosestTide(time);
+    return {
+      ...hour,
+      tideHeight: tideValue
+    };
+  });
+};

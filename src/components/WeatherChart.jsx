@@ -12,8 +12,9 @@ import {
 import { Card } from './ui/card';
 import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain, Waves } from 'lucide-react';
 import { getParameterUnits } from '../lib/settings';
+import { mapTideToHourlyData } from '../lib/tides';
 
-const WeatherChart = ({ hourlyData, unitPreference }) => {
+const WeatherChart = ({ hourlyData, tideData, unitPreference }) => {
   const [visibleMetrics, setVisibleMetrics] = useState({
     temperature: true,
     humidity: true,
@@ -21,9 +22,9 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
     chanceOfRain: true,
     windSpeed: true,
     swellHeight: true,
+    tideHeight: false,
     pressure: false,
     visibility: false,
-    
   });
 
   const getUnit = useMemo(() => {
@@ -76,6 +77,13 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         yAxisId: 'integers',
       },
       {
+        key: 'tideHeight',
+        label: `Tide Height (${getUnit('tideHeight').unit})`,
+        icon: Waves,
+        color: '#8b5cf6',
+        yAxisId: 'integers',
+      },
+      {
         key: 'pressure',
         label: `Pressure (${getUnit('pressure').unit})`,
         icon: Gauge,
@@ -95,7 +103,10 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
   
   const chartData = useMemo(() => {
     if (!hourlyData) return [];
-    return hourlyData.map((hour) => {
+
+    const hourlyWithTide = mapTideToHourlyData(hourlyData, tideData);
+
+    return hourlyWithTide.map((hour) => {
       const time = new Date(hour.time);
       const timeLabel = time.toLocaleTimeString([], {
         hour: 'numeric',
@@ -136,15 +147,15 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         visibilityUnit.convert(hour.visibility?.sg || 10)
       );
 
-      // const waveHeightUnit = getUnit('waveHeight');
-      // const waveHeight = parseFloat(
-      //   waveHeightUnit.convert(hour.waveHeight?.sg || 0).toFixed(2)
-      // );
-
       const swellHeightUnit = getUnit('swellHeight');
       const swellHeight = parseFloat(
         swellHeightUnit.convert(hour.swellHeight?.sg || 0).toFixed(2)
       );
+
+      const tideUnit = getUnit('tideHeight');
+      const tideHeight = hour.tideHeight !== null 
+        ? parseFloat(tideUnit.convert(hour.tideHeight).toFixed(2)) 
+        : null;
 
       return {
         time: timeLabel,
@@ -156,9 +167,10 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
         pressure,
         visibility,
         swellHeight,
+        tideHeight,
       };
     });
-  }, [hourlyData, getUnit]);
+  }, [hourlyData, tideData, getUnit]);
 
   const toggleMetric = (metric) => {
     setVisibleMetrics((prev) => ({
@@ -305,7 +317,7 @@ const WeatherChart = ({ hourlyData, unitPreference }) => {
                   strokeWidth={2}
                   dot={{ fill: metric.color, strokeWidth: 2, r: 4 }}
                   name={metric.label}
-                  connectNulls={false}
+                  connectNulls={true}
                 />
               )
             ))}

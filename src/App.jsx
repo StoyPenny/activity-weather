@@ -135,10 +135,10 @@ function App() {
       // Load forecast data (7-10 days)
       await loadForecastData(targetLocation, forceRefresh);
 
-      // Load astronomy and tide data in parallel
+      // Load astronomy and tide data in parallel (defaults to today for fresh load)
       await Promise.all([
-        loadAstronomyData(targetLocation, forceRefresh),
-        loadTideData(targetLocation, forceRefresh)
+        loadAstronomyData(targetLocation, new Date(), forceRefresh),
+        loadTideData(targetLocation, new Date(), forceRefresh)
       ]);
       
     } catch (err) {
@@ -190,13 +190,13 @@ function App() {
     }
   }, []);
 
-  const loadAstronomyData = useCallback(async (location, forceRefresh = false) => {
+  const loadAstronomyData = useCallback(async (location, date = new Date(), forceRefresh = false) => {
     try {
       setAstronomyLoading(true);
       setAstronomyError(null);
 
-      // Fetch astronomy data for today
-      const astronomy = await fetchAstronomyDataCached(location.lat, location.lng, new Date(), forceRefresh);
+      // Fetch astronomy data for the specified date
+      const astronomy = await fetchAstronomyDataCached(location.lat, location.lng, date, forceRefresh);
       setAstronomyData(astronomy);
 
     } catch (err) {
@@ -207,13 +207,13 @@ function App() {
     }
   }, []);
 
-  const loadTideData = useCallback(async (location, forceRefresh = false) => {
+  const loadTideData = useCallback(async (location, date = new Date(), forceRefresh = false) => {
     try {
       setTideLoading(true);
       setTideError(null);
 
-      // Fetch tide data for today
-      const tides = await fetchTideDataCached(location.lat, location.lng, new Date(), forceRefresh);
+      // Fetch tide data for the specified date
+      const tides = await fetchTideDataCached(location.lat, location.lng, date, forceRefresh);
       setTideData(tides);
 
     } catch (err) {
@@ -279,6 +279,14 @@ function App() {
       
       if (isDateAvailable) {
         updateSelectedDayData(forecastData, newDate);
+        
+        // Also load astronomy and tide data for the new date
+        const targetLocation = locations[activeLocationIndex];
+        if (targetLocation) {
+          loadAstronomyData(targetLocation, newDate);
+          loadTideData(targetLocation, newDate);
+        }
+        
         setError(null); // Clear any previous errors
       } else {
         // Handle unavailable date
@@ -787,6 +795,7 @@ function App() {
         {selectedDayData && !loading && viewMode === 'day' && (
           <WeatherChart
             hourlyData={selectedDayData}
+            tideData={tideData}
             unitPreference={unitPreference}
           />
         )}
@@ -797,6 +806,7 @@ function App() {
             tideData={tideData}
             loading={tideLoading}
             error={tideError}
+            unitPreference={unitPreference}
           />
         )}
 
