@@ -790,9 +790,14 @@ function App() {
           />
         )}
 
-
-        
-
+        {/* Tide Data - Shows tide information */}
+        {!loading && (
+          <TideData
+            tideData={tideData}
+            loading={tideLoading}
+            error={tideError}
+          />
+        )}
 
         {/* Astronomical Data - Shows sun and moon information */}
         {!loading && (
@@ -800,15 +805,6 @@ function App() {
             astronomyData={astronomyData}
             loading={astronomyLoading}
             error={astronomyError}
-          />
-        )}
-
-        {/* Tide Data - Shows tide information */}
-        {!loading && (
-          <TideData
-            tideData={tideData}
-            loading={tideLoading}
-            error={tideError}
           />
         )}
 
