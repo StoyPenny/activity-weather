@@ -660,21 +660,24 @@ export const getCurrentTideStatus = (tideData) => {
   const elapsed = now - lastTide.time;
   const progress = elapsed / timeDiff;
 
+  const lastHeight = parseFloat(lastTide.v);
+  const nextHeight = parseFloat(nextTide.v);
+
   return {
-    currentHeight: lastTide.height + (nextTide.height - lastTide.height) * progress,
+    currentHeight: lastHeight + (nextHeight - lastHeight) * progress,
     lastTide: {
       time: lastTide.t,
-      height: parseFloat(lastTide.v),
+      height: lastHeight,
       type: lastTide.type,
       description: getTideTypeDescription(lastTide.type)
     },
     nextTide: {
       time: nextTide.t,
-      height: parseFloat(nextTide.v),
+      height: nextHeight,
       type: nextTide.type,
       description: getTideTypeDescription(nextTide.type)
     },
-    trend: nextTide.height > lastTide.height ? 'rising' : 'falling',
+    trend: nextHeight > lastHeight ? 'rising' : 'falling',
     progress: Math.min(100, Math.max(0, progress * 100))
   };
 };

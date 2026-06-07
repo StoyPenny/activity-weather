@@ -769,6 +769,7 @@ function App() {
         {currentWeatherData && !loading && (
           <WeatherSummary
             hourlyData={currentWeatherData}
+            tideData={tideData}
             unitPreference={unitPreference}
           />
         )}
