@@ -13,9 +13,10 @@ const express = require('express');
 const cors    = require('cors');
 const { getDb } = require('./database');
 
-const healthRouter   = require('./routes/health');
-const settingsRouter = require('./routes/settings');
-const weatherRouter  = require('./routes/weather');
+const healthRouter    = require('./routes/health');
+const settingsRouter  = require('./routes/settings');
+const weatherRouter   = require('./routes/weather');
+const astronomyRouter = require('./routes/astronomy');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -37,9 +38,10 @@ app.use(express.json());
 // Routes
 // ---------------------------------------------------------------------------
 
-app.use('/api/health',   healthRouter);
-app.use('/api/settings', settingsRouter);
-app.use('/api/weather',  weatherRouter);
+app.use('/api/health',     healthRouter);
+app.use('/api/settings',   settingsRouter);
+app.use('/api/weather',    weatherRouter);
+app.use('/api/astronomy',  astronomyRouter);
 
 // ---------------------------------------------------------------------------
 // 404 handler

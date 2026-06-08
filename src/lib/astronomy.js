@@ -1,5 +1,6 @@
 // --- US NAVAL OBSERVATORY ASTRONOMY API CONFIGURATION ---
-const USNO_BASE_URL = 'https://aa.usno.navy.mil/api/rstt/oneday';
+// Requests are proxied through the Express backend to avoid CORS restrictions.
+const USNO_BASE_URL = '/api/astronomy/oneday';
 
 // --- CACHING CONFIGURATION ---
 // Cache refreshes once per calendar day at local midnight
@@ -270,7 +271,7 @@ const fetchAstronomyData = async (lat, lng, date = new Date()) => {
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   });
 
-  console.log(`🌅 USNO API Request: ${USNO_BASE_URL}?${params.toString()}`);
+  console.log(`🌅 Astronomy proxy request: ${USNO_BASE_URL}?${params.toString()}`);
   console.log(`📍 Location: ${lat}, ${lng} | Date: ${dateStr} | Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
 
   const response = await fetch(`${USNO_BASE_URL}?${params}`);
@@ -290,24 +291,17 @@ const fetchAstronomyData = async (lat, lng, date = new Date()) => {
   let sunData = null;
   let moonData = null;
 
-  // Check different possible API response structures
+  // USNO API returns sundata/moondata as arrays of {phen, time} objects
+  // under properties.data (GeoJSON feature envelope)
   if (data.properties?.data) {
-    // Structure: data.properties.data.sun/moon
-    sunData = data.properties.data.sun;
-    moonData = data.properties.data.moon;
+    sunData = data.properties.data.sundata;
+    moonData = data.properties.data.moondata;
     console.log('📊 Using properties.data structure');
   } else if (data.data) {
-    // Structure: data.data.sun/moon
-    sunData = data.data.sun;
-    moonData = data.data.moon;
+    sunData = data.data.sundata;
+    moonData = data.data.moondata;
     console.log('📊 Using data structure');
-  } else if (data.sun || data.moon) {
-    // Structure: data.sun/moon directly
-    sunData = data.sun;
-    moonData = data.moon;
-    console.log('📊 Using direct structure');
   } else if (data.sundata || data.moondata) {
-    // Alternative naming
     sunData = data.sundata;
     moonData = data.moondata;
     console.log('📊 Using sundata/moondata structure');
@@ -316,19 +310,21 @@ const fetchAstronomyData = async (lat, lng, date = new Date()) => {
   console.log('🌞 Sun data found:', sunData);
   console.log('🌙 Moon data found:', moonData);
 
+  const apiData = data.properties?.data || data.data || data;
+
   const transformedData = {
     date: dateStr,
     location: { lat, lng },
     sun: {
-      rise: sunData?.rise || sunData?.sunrise || null,
-      set: sunData?.set || sunData?.sunset || null,
-      transit: sunData?.transit || sunData?.noon || sunData?.solar_noon || null
+      rise: sunData?.find(d => d.phen === 'Rise')?.time || null,
+      set: sunData?.find(d => d.phen === 'Set')?.time || null,
+      transit: sunData?.find(d => d.phen === 'Upper Transit')?.time || null
     },
     moon: {
-      rise: moonData?.rise || moonData?.moonrise || null,
-      set: moonData?.set || moonData?.moonset || null,
-      phase: moonData?.phase || null,
-      fraction: moonData?.fraction || moonData?.illumination || null
+      rise: moonData?.find(d => d.phen === 'Rise')?.time || null,
+      set: moonData?.find(d => d.phen === 'Set')?.time || null,
+      phase: apiData?.curphase || null,
+      fraction: apiData?.fracillum || null
     },
     raw: data,
     apiSource: 'USNO'

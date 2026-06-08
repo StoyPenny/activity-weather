@@ -315,7 +315,7 @@ function App() {
       if (needsInitialLocation) {
         setNeedsInitialLocation(false);
       }
-      await loadWeatherData(newLocation, true);
+      // The location-change useEffect below will trigger the load.
     } catch (err) {
       setError("Failed to update location.");
       console.error(err);
@@ -415,9 +415,7 @@ function App() {
           newActiveIndex = activeLocationIndex - 1; // Adjust for removed location
         }
         setActiveLocationIndex(newActiveIndex);
-        
-        // Load weather data for new active location
-        loadWeatherData(updatedLocations[newActiveIndex], true);
+        // The location-change useEffect below will trigger the load.
       }
     } catch (err) {
       setError('Failed to remove location');
@@ -461,7 +459,7 @@ function App() {
 
         if (stored && Array.isArray(stored) && stored.length > 0) {
           setLocations(stored);
-          await loadWeatherData(stored[0]);
+          // The location-change useEffect below will trigger the initial load.
         } else {
           // No stored location, show location selection
           setNeedsInitialLocation(true);

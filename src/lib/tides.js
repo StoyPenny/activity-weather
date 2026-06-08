@@ -321,32 +321,31 @@ const calculateDistance = (lat1, lng1, lat2, lng2) => {
 };
 
 // --- NOAA TIDE API SERVICE ---
-const fetchTideData = async (stationId, date = new Date()) => {
+// Retry chain: MLLW/6min → STND/6min → MLLW/hilo → STND/hilo → throw
+// Subordinate stations often only have H/L data, not 6-minute intervals.
+const fetchTideData = async (stationId, date = new Date(), datum = 'MLLW', interval = null) => {
   // Validate station ID
   if (!stationId || typeof stationId !== 'string') {
     throw new Error('Invalid station ID provided');
   }
 
-  // Format date range (start of day to end of day)
-  const startDate = new Date(date);
-  startDate.setHours(0, 0, 0, 0);
-  const endDate = new Date(date);
-  endDate.setHours(23, 59, 59, 999);
-
-  const beginDate = startDate.toISOString().split('T')[0].replace(/-/g, '');
-  const endDateStr = endDate.toISOString().split('T')[0].replace(/-/g, '');
+  // Build local-date string without UTC conversion (NOAA expects local dates)
+  const pad = (n) => String(n).padStart(2, '0');
+  const localDate = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
 
   const params = new URLSearchParams({
     product: 'predictions',
     application: 'NOS.COOPS.TAC.WL',
-    begin_date: beginDate,
-    end_date: endDateStr,
-    datum: 'MLLW',
+    begin_date: localDate,
+    end_date: localDate,
+    datum: datum,
     station: stationId,
     time_zone: 'lst_ldt',
     units: 'english',
     format: 'json'
   });
+
+  if (interval) params.set('interval', interval);
 
   const response = await fetch(`${NOAA_BASE_URL}?${params}`);
 
@@ -358,19 +357,41 @@ const fetchTideData = async (stationId, date = new Date()) => {
   const data = await response.json();
   console.log('NOAA Tide API Response:', data);
 
+  // NOAA returns 200 OK with an error body when data isn't available
+  if (data.error) {
+    const msg = data.error.message || JSON.stringify(data.error);
+    if (datum === 'MLLW' && !interval) {
+      console.log('MLLW/6min failed, retrying with STND...');
+      return fetchTideData(stationId, date, 'STND', null);
+    }
+    if (datum === 'STND' && !interval) {
+      // Station likely only has H/L data — try hilo interval
+      console.log('6-minute data unavailable, retrying with H/L interval...');
+      return fetchTideData(stationId, date, 'MLLW', 'hilo');
+    }
+    if (datum === 'MLLW' && interval === 'hilo') {
+      console.log('MLLW/hilo failed, retrying with STND/hilo...');
+      return fetchTideData(stationId, date, 'STND', 'hilo');
+    }
+    throw new Error(`NOAA Tide API: ${msg}`);
+  }
+
+  if (!data.predictions?.length) {
+    throw new Error(`NOAA Tide API returned no predictions for station ${stationId}`);
+  }
+
   // Transform the data to a more usable format
   const transformedData = {
-    date: date.toISOString().split('T')[0],
+    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
     station: {
       id: stationId,
       name: data.metadata?.name || 'Unknown Station',
       lat: data.metadata?.lat || null,
       lng: data.metadata?.lng || null
     },
-    predictions: data.predictions || [],
+    predictions: data.predictions,
     metadata: data.metadata || null,
     disclaimer: data.disclaimer || null,
-    raw: data
   };
 
   return transformedData;
@@ -828,7 +849,10 @@ export const extractHighLowTides = (tideData) => {
 };
 
 /**
- * Maps high-frequency tide predictions to hourly buckets.
+ * Maps tide predictions to hourly buckets.
+ * For 6-minute interval data, finds the nearest prediction within 30 minutes.
+ * For H/L-only data (subordinate stations), interpolates sinusoidally between
+ * high and low tide events to produce a continuous curve.
  * @param {Array} hourlyData - Array of hourly weather data objects
  * @param {Object} tideData - Tide data object from fetchTideDataCached
  * @returns {Array} Hourly data with tideHeight property added
@@ -836,29 +860,55 @@ export const extractHighLowTides = (tideData) => {
 export const mapTideToHourlyData = (hourlyData, tideData) => {
   if (!hourlyData || !tideData?.predictions?.length) return hourlyData;
 
-  // Helper to find closest tide prediction for a given time
+  const predictions = tideData.predictions;
+  const isHiloData = predictions.some(p => p.type);
+
+  if (isHiloData) {
+    // Sinusoidal interpolation between H/L events
+    const events = predictions.map(p => ({
+      time: new Date(p.t.replace(' ', 'T')),
+      v: parseFloat(p.v)
+    }));
+
+    const interpolate = (targetTime) => {
+      if (events.length === 0) return null;
+      if (targetTime <= events[0].time) return events[0].v;
+      if (targetTime >= events[events.length - 1].time) return events[events.length - 1].v;
+
+      for (let i = 0; i < events.length - 1; i++) {
+        if (targetTime >= events[i].time && targetTime <= events[i + 1].time) {
+          const progress = (targetTime - events[i].time) / (events[i + 1].time - events[i].time);
+          const t = (1 - Math.cos(progress * Math.PI)) / 2;
+          return events[i].v + t * (events[i + 1].v - events[i].v);
+        }
+      }
+      return null;
+    };
+
+    return hourlyData.map(hour => ({
+      ...hour,
+      tideHeight: interpolate(new Date(hour.time))
+    }));
+  }
+
+  // 6-minute interval data: find closest prediction within 30 minutes
   const getClosestTide = (targetTime) => {
-    let closest = tideData.predictions[0];
+    let closest = predictions[0];
     let minDiff = Math.abs(new Date(closest.t.replace(' ', 'T')) - targetTime);
 
-    for (let i = 1; i < tideData.predictions.length; i++) {
-      const diff = Math.abs(new Date(tideData.predictions[i].t.replace(' ', 'T')) - targetTime);
+    for (let i = 1; i < predictions.length; i++) {
+      const diff = Math.abs(new Date(predictions[i].t.replace(' ', 'T')) - targetTime);
       if (diff < minDiff) {
         minDiff = diff;
-        closest = tideData.predictions[i];
+        closest = predictions[i];
       }
     }
-    
-    // Only return if it's within a reasonable range (e.g. 30 minutes)
+
     return minDiff < 30 * 60 * 1000 ? parseFloat(closest.v) : null;
   };
 
-  return hourlyData.map(hour => {
-    const time = new Date(hour.time);
-    const tideValue = getClosestTide(time);
-    return {
-      ...hour,
-      tideHeight: tideValue
-    };
-  });
+  return hourlyData.map(hour => ({
+    ...hour,
+    tideHeight: getClosestTide(new Date(hour.time))
+  }));
 };

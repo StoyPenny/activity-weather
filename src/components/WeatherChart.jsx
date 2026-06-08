@@ -153,8 +153,8 @@ const WeatherChart = ({ hourlyData, tideData, unitPreference }) => {
       );
 
       const tideUnit = getUnit('tideHeight');
-      const tideHeight = hour.tideHeight !== null 
-        ? parseFloat(tideUnit.convert(hour.tideHeight).toFixed(2)) 
+      const tideHeight = hour.tideHeight != null
+        ? parseFloat(tideUnit.convert(hour.tideHeight).toFixed(2))
         : null;
 
       return {
