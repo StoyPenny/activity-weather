@@ -8,7 +8,7 @@ import {
 import MetricTooltip from "./MetricTooltip"
 import { extractHighLowTides } from "../lib/tides"
 
-const ActivityTimelineCard = ({ title, hourlyRatings, tideData }) => {
+const ActivityTimelineCard = ({ title, hourlyRatings, tideData, astronomyData }) => {
   const formatTime = (isoString) => {
     return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', hour12: true });
   }
@@ -26,6 +26,27 @@ const ActivityTimelineCard = ({ title, hourlyRatings, tideData }) => {
     } else {
       return 'bg-red-500 hover:bg-red-400'; // Poor (0-2)
     }
+  };
+
+  // Parse sunrise/sunset for the card's date if astronomy data is available and matches
+  const daylightMinutes = useMemo(() => {
+    if (!astronomyData?.sun?.rise || !astronomyData?.sun?.set) return null;
+    if (!hourlyRatings || hourlyRatings.length === 0) return null;
+
+    const ratingsDate = new Date(hourlyRatings[0].time).toDateString();
+    const astroDate = new Date(astronomyData.date + 'T00:00:00').toDateString();
+    if (ratingsDate !== astroDate) return null;
+
+    const [riseH, riseM] = astronomyData.sun.rise.split(':').map(Number);
+    const [setH, setM] = astronomyData.sun.set.split(':').map(Number);
+    return { rise: riseH * 60 + riseM, set: setH * 60 + setM };
+  }, [astronomyData, hourlyRatings]);
+
+  const isDaylight = (timeStr) => {
+    if (!daylightMinutes) return true;
+    const d = new Date(timeStr);
+    const minutes = d.getHours() * 60 + d.getMinutes();
+    return minutes >= daylightMinutes.rise && minutes < daylightMinutes.set;
   };
 
   // Extract tide events if data is available for this day
@@ -147,10 +168,11 @@ const ActivityTimelineCard = ({ title, hourlyRatings, tideData }) => {
               // Ensure rating is always a number (handle both object and number cases)
               const rating = typeof ratingData === 'object' ? ratingData.rating : ratingData;
               const colorClasses = getColorClasses(rating);
+              const daylight = isDaylight(time);
               return (
                 <div
                   key={time}
-                  className="flex-1 group relative"
+                  className={`flex-1 group relative${daylight ? '' : ' opacity-50'}`}
                   role="button"
                   tabIndex={0}
                   aria-label={`${title} rating: ${rating.toFixed(1)} out of 10 at ${formatTime(time)}`}

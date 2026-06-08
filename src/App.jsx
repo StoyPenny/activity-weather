@@ -752,6 +752,7 @@ function App() {
                     title={activity}
                     hourlyRatings={hourlyRatings}
                     tideData={tideData}
+                    astronomyData={astronomyData}
                   />
                 ))}
               </div>
@@ -766,6 +767,7 @@ function App() {
                     title={dayData.dayName}
                     hourlyRatings={dayData.hourlyRatings}
                     tideData={tideData}
+                    astronomyData={astronomyData}
                   />
                 ))}
               </div>
