@@ -488,6 +488,10 @@ export const getParameterUnits = (parameter, unitPreference) => {
       metric:   { unit: 'm', convert: (v) => v },
       imperial: { unit: 'ft', convert: (v) => convertDistance(v, 'm', 'ft') }
     },
+    'tideHeight': {
+      metric:   { unit: 'm', convert: (v) => convertDistance(v, 'ft', 'm') },
+      imperial: { unit: 'ft', convert: (v) => v }
+    },
     'default': {
       metric:   { unit: '', convert: (v) => v },
       imperial: { unit: '', convert: (v) => v }

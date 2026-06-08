@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Card,
   CardContent,
@@ -5,8 +6,9 @@ import {
   CardTitle,
 } from "./ui/card"
 import MetricTooltip from "./MetricTooltip"
+import { extractHighLowTides } from "../lib/tides"
 
-const ActivityTimelineCard = ({ title, hourlyRatings }) => {
+const ActivityTimelineCard = ({ title, hourlyRatings, tideData, astronomyData }) => {
   const formatTime = (isoString) => {
     return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', hour12: true });
   }
@@ -24,6 +26,54 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
     } else {
       return 'bg-red-500 hover:bg-red-400'; // Poor (0-2)
     }
+  };
+
+  // Parse sunrise/sunset for the card's date if astronomy data is available and matches
+  const daylightMinutes = useMemo(() => {
+    if (!astronomyData?.sun?.rise || !astronomyData?.sun?.set) return null;
+    if (!hourlyRatings || hourlyRatings.length === 0) return null;
+
+    const ratingsDate = new Date(hourlyRatings[0].time).toDateString();
+    const astroDate = new Date(astronomyData.date + 'T00:00:00').toDateString();
+    if (ratingsDate !== astroDate) return null;
+
+    const [riseH, riseM] = astronomyData.sun.rise.split(':').map(Number);
+    const [setH, setM] = astronomyData.sun.set.split(':').map(Number);
+    return { rise: riseH * 60 + riseM, set: setH * 60 + setM };
+  }, [astronomyData, hourlyRatings]);
+
+  const isDaylight = (timeStr) => {
+    if (!daylightMinutes) return true;
+    const d = new Date(timeStr);
+    const minutes = d.getHours() * 60 + d.getMinutes();
+    return minutes >= daylightMinutes.rise && minutes < daylightMinutes.set;
+  };
+
+  // Extract tide events if data is available for this day
+  const tideEvents = useMemo(() => {
+    if (!tideData || !hourlyRatings || hourlyRatings.length === 0) return [];
+    
+    // Check if tide data is for the same day as the hourly ratings
+    const ratingsDate = new Date(hourlyRatings[0].time).toDateString();
+    
+    // Normalize tide date string to handle potential timezone shifts or format differences
+    // tideData.date is usually YYYY-MM-DD
+    const tideDateStr = new Date(tideData.date + 'T00:00:00').toDateString();
+    
+    if (ratingsDate !== tideDateStr) return [];
+    
+    return extractHighLowTides(tideData);
+  }, [tideData, hourlyRatings]);
+
+  // Helper to find tide event for a specific hour
+  const getTideForHour = (hourTimeStr) => {
+    const hourTime = new Date(hourTimeStr);
+    const hour = hourTime.getHours();
+    
+    return tideEvents.find(event => {
+      const eventTime = new Date(event.t.replace(' ', 'T'));
+      return eventTime.getHours() === hour;
+    });
   };
 
   if (!hourlyRatings || hourlyRatings.length === 0) {
@@ -90,6 +140,27 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
             {displayRating !== null ? displayRating.toFixed(1) : 'N/A'}
           </div>
 
+          {tideEvents.length > 0 && (
+            <div className="flex space-x-1 w-full mb-1 h-4 items-end px-0.5">
+              {hourlyRatings.map((hourData) => {
+                const tideEvent = getTideForHour(hourData.time);
+                if (!tideEvent) return <div key={hourData.time} className="flex-1" />;
+                
+                const isHigh = tideEvent.type === 'H' || tideEvent.type === 'h';
+                return (
+                  <div key={hourData.time} className="flex-1 flex justify-center group/tide relative">
+                    <div className={`text-[10px] font-bold leading-none ${isHigh ? 'text-blue-500' : 'text-gray-400'}`}>
+                      {tideEvent.type.toUpperCase()}
+                    </div>
+                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 opacity-0 group-hover/tide:opacity-100 transition-opacity bg-gray-800 text-white text-[10px] py-0.5 px-1.5 rounded pointer-events-none whitespace-nowrap z-20 shadow-lg border border-gray-700">
+                      {isHigh ? 'High' : 'Low'}: {parseFloat(tideEvent.v).toFixed(1)}ft
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="flex space-x-1 w-full">
             
             {hourlyRatings.map((hourData) => {
@@ -97,10 +168,11 @@ const ActivityTimelineCard = ({ title, hourlyRatings }) => {
               // Ensure rating is always a number (handle both object and number cases)
               const rating = typeof ratingData === 'object' ? ratingData.rating : ratingData;
               const colorClasses = getColorClasses(rating);
+              const daylight = isDaylight(time);
               return (
                 <div
                   key={time}
-                  className="flex-1 group relative"
+                  className={`flex-1 group relative${daylight ? '' : ' opacity-50'}`}
                   role="button"
                   tabIndex={0}
                   aria-label={`${title} rating: ${rating.toFixed(1)} out of 10 at ${formatTime(time)}`}

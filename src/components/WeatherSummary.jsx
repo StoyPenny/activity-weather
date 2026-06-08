@@ -1,4 +1,4 @@
-import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain, Waves, Bubbles } from 'lucide-react';
+import { Thermometer, Droplets, Eye, Wind, Gauge, CloudRain, Waves, Bubbles, Anchor } from 'lucide-react';
 import { Card } from './ui/card';
 import { 
   getCurrentWeatherData, 
@@ -7,8 +7,9 @@ import {
   getPrecipitationChance,
 } from '../lib/weather';
 import { getParameterUnits } from '../lib/settings';
+import { getCurrentTideStatus } from '../lib/tides';
 
-const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
+const WeatherSummary = ({ hourlyData, tideData, unitPreference = 'metric' }) => {
   if (!hourlyData || hourlyData.length === 0) {
     return null;
   }
@@ -57,6 +58,9 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
   const feelsLike = Math.round(tempUnit.convert(feelsLikeC));
   const precipChance = Math.round(getPrecipitationChance(currentWeather.precipitation?.sg || 0, cloudCover));
 
+  // Get tide status if data is available
+  const tideStatus = tideData ? getCurrentTideStatus(tideData) : null;
+
   const weatherItems = [
     {
       icon: Thermometer,
@@ -102,6 +106,20 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
     }
   ];
 
+  // Add tide item if available
+  if (tideStatus) {
+    const tideUnit = getUnit('tideHeight');
+    const tideHeight = tideUnit.convert(tideStatus.currentHeight);
+
+    weatherItems.push({
+      icon: Anchor,
+      label: 'Tide',
+      value: parseFloat(tideHeight.toFixed(1)),
+      unit: tideUnit.unit,
+      subValue: tideStatus.trend.charAt(0).toUpperCase() + tideStatus.trend.slice(1)
+    });
+  }
+
   return (
     <Card className="p-4 mb-8 mt-8 md:p-6 bg-white dark:bg-blue-950/20 dark:border-blue-900/50 rounded-lg shadow-lg">
       
@@ -109,7 +127,7 @@ const WeatherSummary = ({ hourlyData, unitPreference = 'metric' }) => {
         Current Conditions
       </h2>
       
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className={`grid grid-cols-2 md:grid-cols-3 ${weatherItems.length === 7 ? 'lg:grid-cols-7' : 'lg:grid-cols-6'} gap-4`}>
         {weatherItems.map((item, index) => {
           const IconComponent = item.icon;
           return (

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "robo-warehouse": {
+      "type": "sse",
+      "url": "http://thezeph.tail08f20.ts.net:8000/mcp/sse",
+      "trust": true
+    }
+  },
+  "disabled_tools": [
+    "run_shell_command"
+  ]
+}

@@ -1,7 +1,8 @@
 import { Waves, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { formatTideTime, getTideTypeDescription, getCurrentTideStatus, getNextTideEvents } from '../lib/tides';
+import { getParameterUnits } from '../lib/settings';
 
-const TideData = ({ tideData, loading = false, error = null }) => {
+const TideData = ({ tideData, loading = false, error = null, unitPreference = 'metric' }) => {
   if (loading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
@@ -30,6 +31,7 @@ const TideData = ({ tideData, loading = false, error = null }) => {
 
   const currentStatus = getCurrentTideStatus(tideData);
   const nextTides = getNextTideEvents(tideData, 4);
+  const tideUnit = getParameterUnits('tideHeight', unitPreference);
 
   return (
     <div className="bg-white dark:bg-blue-900/10 rounded-lg shadow-sm border border-gray-200 dark:border-blue-900/50 p-6 mb-8">
@@ -68,7 +70,7 @@ const TideData = ({ tideData, loading = false, error = null }) => {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {currentStatus.currentHeight.toFixed(2)} ft
+                    {tideUnit.convert(currentStatus.currentHeight).toFixed(2)} {tideUnit.unit}
                   </p>
                   <div className="flex items-center mt-1">
                     {currentStatus.trend === 'rising' ? (
@@ -102,7 +104,7 @@ const TideData = ({ tideData, loading = false, error = null }) => {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {currentStatus.lastTide.height.toFixed(2)} ft
+                    {tideUnit.convert(currentStatus.lastTide.height).toFixed(2)} {tideUnit.unit}
                   </p>
                 </div>
               </div>
@@ -126,7 +128,7 @@ const TideData = ({ tideData, loading = false, error = null }) => {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {currentStatus.nextTide.height.toFixed(2)} ft
+                    {tideUnit.convert(currentStatus.nextTide.height).toFixed(2)} {tideUnit.unit}
                   </p>
                 </div>
               </div>
@@ -176,7 +178,7 @@ const TideData = ({ tideData, loading = false, error = null }) => {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {tide.height.toFixed(2)} ft
+                      {tideUnit.convert(tide.height).toFixed(2)} {tideUnit.unit}
                     </p>
                   </div>
                 </div>
@@ -224,7 +226,7 @@ const TideData = ({ tideData, loading = false, error = null }) => {
                         : 'bg-gray-300 dark:bg-gray-600'
                     }`}
                     style={{ height: `${Math.max(normalizedHeight, 5)}%` }}
-                    title={`${getTideTypeDescription(prediction.type)}: ${height.toFixed(2)} ft at ${formatTideTime(prediction.t)}`}
+                    title={`${getTideTypeDescription(prediction.type)}: ${tideUnit.convert(height).toFixed(2)} ${tideUnit.unit} at ${formatTideTime(prediction.t)}`}
                   ></div>
                 );
               })}
